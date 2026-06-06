@@ -1,0 +1,68 @@
+@{
+    ViewData["Title"] = "Login";
+}
+
+<style>
+    .login-page {
+        background: #fff9db;
+        border: 1px solid #f1e6a8;
+        padding: 24px;
+        color: #222;
+    }
+
+    .login-panel {
+        background: #ffffff;
+        border: 1px solid #eadf9b;
+        padding: 24px;
+        max-width: 460px;
+        margin: 24px auto;
+    }
+
+    .login-title {
+        font-size: 28px;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+
+    .login-subtitle {
+        color: #666;
+        margin-bottom: 20px;
+    }
+
+    .findyou-brand {
+        color: #8a6d00;
+        font-weight: 700;
+    }
+
+    .btn,
+    .form-control {
+        border-radius: 0 !important;
+    }
+</style>
+
+<div class="login-page">
+    <div class="login-panel">
+        <p class="mb-1 findyou-brand">FindYOU</p>
+        <h1 class="login-title">Login</h1>
+        <p class="login-subtitle">Enter your email and password to manage FindYOU records.</p>
+
+        @if (ViewBag.Error != null)
+        {
+            <div class="alert alert-danger rounded-0">@ViewBag.Error</div>
+        }
+
+        <form asp-controller="Home" asp-action="Login" method="post">
+            <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" id="email" name="email" class="form-control" placeholder="Enter email" required />
+            </div>
+
+            <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" id="password" name="password" class="form-control" placeholder="Enter password" required />
+            </div>
+
+            <button type="submit" class="btn btn-warning text-dark w-100">Login</button>
+        </form>
+    </div>
+</div>

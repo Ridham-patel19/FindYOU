@@ -1,0 +1,307 @@
+@model IEnumerable<FindYOU.Category>
+@using System.Text.Json
+
+@{
+    ViewData["Title"] = "Category";
+    var categories = Model?.Select(category => new
+    {
+        category.Id,
+        category.Name
+    }) ?? Enumerable.Empty<object>();
+}
+
+<style>
+    .category-page {
+        background: #fff9db;
+        border: 1px solid #f1e6a8;
+        padding: 24px;
+        color: #222;
+    }
+
+    .category-header,
+    .category-table-wrap {
+        background: #ffffff;
+        border: 1px solid #eadf9b;
+    }
+
+    .category-header {
+        padding: 18px 20px;
+        margin-bottom: 18px;
+    }
+
+    .category-table-wrap {
+        padding: 14px;
+    }
+
+    .category-title {
+        font-size: 28px;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .category-subtitle {
+        color: #666;
+        margin: 4px 0 0;
+    }
+
+    .category-toolbar {
+        display: flex;
+        gap: 10px;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+    }
+
+    .findyou-brand {
+        color: #8a6d00;
+        font-weight: 700;
+    }
+
+    .table thead th {
+        background: #fff3b0;
+        border-bottom: 1px solid #eadf9b;
+    }
+
+    .btn,
+    .form-control,
+    .modal-content {
+        border-radius: 0 !important;
+    }
+
+    .window-label {
+        color: #666;
+        font-size: 13px;
+        margin-bottom: 4px;
+    }
+
+    .window-value {
+        background: #fffdf0;
+        border: 1px solid #eadf9b;
+        padding: 10px 12px;
+        margin-bottom: 12px;
+    }
+</style>
+
+<div class="category-page">
+    <div class="category-header">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+            <div>
+                <p class="mb-1 findyou-brand">FindYOU</p>
+                <h1 class="category-title">Category Management</h1>
+                <p class="category-subtitle">Manage category records for the FindYOU office system.</p>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <a asp-controller="Category" asp-action="Create" class="btn btn-warning text-dark">Create Category</a>
+                <a asp-controller="Home" asp-action="Logout" class="btn btn-outline-danger">Logout</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="category-table-wrap">
+        <div class="category-toolbar">
+            <div class="fw-semibold">Categories</div>
+            <input id="categorySearch" class="form-control" style="max-width: 280px;" placeholder="Search category..." />
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle mb-0" id="categoryTable">
+                <thead>
+                    <tr>
+                        <th style="width: 90px;">Id</th>
+                        <th>Category Name</th>
+                        <th style="width: 280px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="categoryRows"></tbody>
+            </table>
+        </div>
+        <div id="emptyMessage" class="text-center text-muted py-4 d-none">No categories found.</div>
+    </div>
+</div>
+
+<form id="antiForgeryForm" method="post">
+    @Html.AntiForgeryToken()
+</form>
+
+<div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="detailModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#fff3b0;">
+                <h5 class="modal-title" id="detailModalTitle">Category Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="window-label">Category Id</div>
+                <div id="detailId" class="window-value"></div>
+                <div class="window-label">Category Name</div>
+                <div id="detailName" class="window-value"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="editCategoryForm">
+                <div class="modal-header" style="background:#fff3b0;">
+                    <h5 class="modal-title" id="editModalTitle">Update Category</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editId" name="Id" />
+                    <div class="mb-3">
+                        <label for="editName" class="form-label">Category Name</label>
+                        <input type="text" id="editName" name="Name" class="form-control" maxlength="100" required />
+                        <div class="form-text">Maximum 100 characters.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning text-dark">Update</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        $(function () {
+            var categoryData = @Html.Raw(JsonSerializer.Serialize(categories));
+            var filteredData = categoryData.slice();
+            var token = $('#antiForgeryForm input[name="__RequestVerificationToken"]').val();
+            var detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
+            var editModal = new bootstrap.Modal(document.getElementById('editModal'));
+
+            function htmlEncode(value) {
+                return $('<div>').text(value || '').html();
+            }
+
+            function findCategory(id) {
+                return categoryData.find(function (category) {
+                    return category.Id === Number(id);
+                });
+            }
+
+            function renderRows() {
+                var rows = filteredData.map(function (category) {
+                    return '<tr data-id="' + category.Id + '">' +
+                        '<td>' + category.Id + '</td>' +
+                        '<td>' + htmlEncode(category.Name) + '</td>' +
+                        '<td>' +
+                            '<button type="button" class="btn btn-sm btn-outline-primary me-1 js-detail">Details</button>' +
+                            '<button type="button" class="btn btn-sm btn-outline-warning me-1 js-edit">Update</button>' +
+                            '<button type="button" class="btn btn-sm btn-outline-danger js-delete">Delete</button>' +
+                        '</td>' +
+                    '</tr>';
+                }).join('');
+
+                $('#categoryRows').html(rows);
+                $('#categoryTable').toggleClass('d-none', filteredData.length === 0);
+                $('#emptyMessage').toggleClass('d-none', filteredData.length !== 0);
+            }
+
+            function applySearch() {
+                var searchValue = $.trim($('#categorySearch').val()).toLowerCase();
+                filteredData = categoryData.filter(function (category) {
+                    return !searchValue || category.Name.toLowerCase().indexOf(searchValue) >= 0;
+                });
+                renderRows();
+            }
+
+            $('#categorySearch').on('input', applySearch);
+
+            $('#categoryRows').on('click', '.js-detail', function () {
+                var category = findCategory($(this).closest('tr').data('id'));
+                $('#detailId').text(category.Id);
+                $('#detailName').text(category.Name);
+                detailModal.show();
+            });
+
+            $('#categoryRows').on('click', '.js-edit', function () {
+                var category = findCategory($(this).closest('tr').data('id'));
+                $('#editId').val(category.Id);
+                $('#editName').val(category.Name);
+                editModal.show();
+            });
+
+            $('#categoryRows').on('click', '.js-delete', function () {
+                var category = findCategory($(this).closest('tr').data('id'));
+
+                Swal.fire({
+                    title: 'Delete category?',
+                    text: 'This will delete "' + category.Name + '".',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Delete'
+                }).then(function (result) {
+                    if (!result.isConfirmed) {
+                        return;
+                    }
+
+                    $.ajax({
+                        url: '@Url.Action("Delete", "Category")',
+                        type: 'POST',
+                        data: {
+                            id: category.Id,
+                            __RequestVerificationToken: token
+                        },
+                        success: function () {
+                            categoryData = categoryData.filter(function (item) {
+                                return item.Id !== category.Id;
+                            });
+                            applySearch();
+                            Swal.fire('Deleted', 'Category has been deleted.', 'success');
+                        },
+                        error: function () {
+                            Swal.fire('Error', 'Category could not be deleted.', 'error');
+                        }
+                    });
+                });
+            });
+
+            $('#editCategoryForm').on('submit', function (event) {
+                event.preventDefault();
+
+                var id = Number($('#editId').val());
+                var name = $.trim($('#editName').val());
+
+                if (!name) {
+                    Swal.fire('Required', 'Category name is required.', 'info');
+                    return;
+                }
+
+                $.ajax({
+                    url: '@Url.Action("Edit", "Category")/' + id,
+                    type: 'POST',
+                    data: {
+                        Id: id,
+                        Name: name,
+                        __RequestVerificationToken: token
+                    },
+                    success: function () {
+                        var category = findCategory(id);
+                        category.Name = name;
+                        applySearch();
+                        editModal.hide();
+                        Swal.fire('Updated', 'Category has been updated.', 'success');
+                    },
+                    error: function () {
+                        Swal.fire('Error', 'Category could not be updated.', 'error');
+                    }
+                });
+            });
+
+            renderRows();
+        });
+    </script>
+}

@@ -1,0 +1,150 @@
+@model FindYOU.ChatEntry
+
+@{
+    ViewData["Title"] = "Create Chat Entry";
+}
+
+<style>
+    .chat-entry-create-page {
+        background: #fff9db;
+        border: 1px solid #f1e6a8;
+        padding: 24px;
+        color: #222;
+    }
+
+    .chat-entry-create-panel {
+        background: #ffffff;
+        border: 1px solid #eadf9b;
+        padding: 22px;
+        max-width: 760px;
+    }
+
+    .chat-entry-create-title {
+        font-size: 26px;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+
+    .chat-entry-create-subtitle {
+        color: #666;
+        margin-bottom: 20px;
+    }
+
+    .findyou-brand {
+        color: #8a6d00;
+        font-weight: 700;
+    }
+
+    .btn,
+    .form-control,
+    .form-select {
+        border-radius: 0 !important;
+    }
+</style>
+
+<div class="chat-entry-create-page">
+    <div class="chat-entry-create-panel">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+            <div>
+                <p class="mb-1 findyou-brand">FindYOU</p>
+                <h1 class="chat-entry-create-title">Create Chat Entry</h1>
+                <p class="chat-entry-create-subtitle">Add a new chat entry record for the FindYOU office system.</p>
+            </div>
+            <a asp-controller="Home" asp-action="Logout" class="btn btn-outline-danger">Logout</a>
+        </div>
+
+        <form asp-action="Create" asp-controller="ChatEntry" method="post" id="createChatEntryForm">
+            @Html.AntiForgeryToken()
+
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <div class="mb-3">
+                <label asp-for="Title" class="form-label">title</label>
+                <input asp-for="Title" class="form-control" id="chatTitle" maxlength="255" />
+                <span asp-validation-for="Title" class="text-danger"></span>
+                <div class="form-text">maximum 255 characters.</div>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="ChatLink" class="form-label">chat link</label>
+                <input asp-for="ChatLink" class="form-control" id="chatLink" type="url" />
+                <span asp-validation-for="ChatLink" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="CategoryId" class="form-label">category</label>
+                <select asp-for="CategoryId" class="form-select" id="categoryId">
+                    <option value="">select category</option>
+                </select>
+                <span asp-validation-for="CategoryId" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Summary" class="form-label">summary</label>
+                <textarea asp-for="Summary" class="form-control" id="chatSummary" rows="3"></textarea>
+                <span asp-validation-for="Summary" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Notes" class="form-label">notes</label>
+                <textarea asp-for="Notes" class="form-control" id="chatNotes" rows="3"></textarea>
+                <span asp-validation-for="Notes" class="text-danger"></span>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2">
+                <a asp-controller="ChatEntry" asp-action="Index" class="btn btn-outline-secondary">back</a>
+                <button type="submit" class="btn btn-warning text-dark">save chat entry</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        $(function () {
+            function normalizeCategory(category) {
+                return {
+                    Id: category.Id || category.id,
+                    Name: category.Name || category.name || ''
+                };
+            }
+
+            function htmlEncode(value) {
+                return $('<div>').text(value || '').html();
+            }
+
+            function lower(value) {
+                return (value || '').toString().toLowerCase();
+            }
+
+            $.get('@Url.Action("GetAll", "Category")', function (categories) {
+                var options = (categories || []).map(normalizeCategory).map(function (category) {
+                    return '<option value="' + category.Id + '">' + htmlEncode(lower(category.Name)) + '</option>';
+                }).join('');
+
+                $('#categoryId').append(options);
+            });
+
+            $('#createChatEntryForm').on('submit', function (event) {
+                var title = $.trim($('#chatTitle').val()).toLowerCase();
+                var chatLink = $.trim($('#chatLink').val());
+                var categoryId = $('#categoryId').val();
+                var summary = $.trim($('#chatSummary').val()).toLowerCase();
+                var notes = $.trim($('#chatNotes').val()).toLowerCase();
+
+                $('#chatTitle').val(title);
+                $('#chatLink').val(chatLink);
+                $('#chatSummary').val(summary);
+                $('#chatNotes').val(notes);
+
+                if (!title || !chatLink || !categoryId) {
+                    event.preventDefault();
+                    Swal.fire('required', 'title, chat link and category are required.', 'info');
+                }
+            });
+        });
+    </script>
+}

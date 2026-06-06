@@ -1,0 +1,91 @@
+@model FindYOU.Category
+
+@{
+    ViewData["Title"] = "Create Category";
+}
+
+<style>
+    .category-create-page {
+        background: #fff9db;
+        border: 1px solid #f1e6a8;
+        padding: 24px;
+        color: #222;
+    }
+
+    .category-create-panel {
+        background: #ffffff;
+        border: 1px solid #eadf9b;
+        padding: 22px;
+        max-width: 640px;
+    }
+
+    .category-create-title {
+        font-size: 26px;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+
+    .category-create-subtitle {
+        color: #666;
+        margin-bottom: 20px;
+    }
+
+    .findyou-brand {
+        color: #8a6d00;
+        font-weight: 700;
+    }
+
+    .btn,
+    .form-control {
+        border-radius: 0 !important;
+    }
+</style>
+
+<div class="category-create-page">
+    <div class="category-create-panel">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+            <div>
+                <p class="mb-1 findyou-brand">FindYOU</p>
+                <h1 class="category-create-title">Create Category</h1>
+                <p class="category-create-subtitle">Add a new category record for the FindYOU office system.</p>
+            </div>
+            <a asp-controller="Home" asp-action="Logout" class="btn btn-outline-danger">Logout</a>
+        </div>
+
+        <form asp-action="Create" asp-controller="Category" method="post" id="createCategoryForm">
+            @Html.AntiForgeryToken()
+
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <div class="mb-3">
+                <label asp-for="Name" class="form-label">Category Name</label>
+                <input asp-for="Name" class="form-control" id="categoryName" maxlength="100" />
+                <span asp-validation-for="Name" class="text-danger"></span>
+                <div class="form-text">Maximum 100 characters.</div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2">
+                <a asp-controller="Category" asp-action="Index" class="btn btn-outline-secondary">Back</a>
+                <button type="submit" class="btn btn-warning text-dark">Save Category</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        $(function () {
+            $('#createCategoryForm').on('submit', function (event) {
+                var name = $.trim($('#categoryName').val());
+
+                if (!name) {
+                    event.preventDefault();
+                    Swal.fire('Required', 'Category name is required.', 'info');
+                }
+            });
+        });
+    </script>
+}

@@ -1,0 +1,101 @@
+@{
+    ViewData["Title"] = "Home";
+}
+
+<style>
+    .home-page {
+        background: #fff9db;
+        border: 1px solid #f1e6a8;
+        padding: 24px;
+        color: #222;
+    }
+
+    .home-hero {
+        background: #ffffff;
+        border: 1px solid #eadf9b;
+        padding: 28px;
+    }
+
+    .home-title {
+        font-size: 36px;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+
+    .home-subtitle {
+        color: #555;
+        font-size: 18px;
+        max-width: 680px;
+        margin-bottom: 22px;
+    }
+
+    .home-info {
+        background: #fffdf0;
+        border: 1px solid #eadf9b;
+        padding: 14px;
+        height: 100%;
+    }
+
+    .home-image {
+        background: #fff3b0;
+        border: 1px solid #eadf9b;
+        min-height: 220px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #8a6d00;
+        font-size: 64px;
+        font-weight: 700;
+    }
+
+    .findyou-brand {
+        color: #8a6d00;
+        font-weight: 700;
+    }
+
+    .btn {
+        border-radius: 0 !important;
+    }
+</style>
+
+<div class="home-page">
+    <div class="home-hero">
+        <div class="row align-items-center g-4">
+            <div class="col-lg-7">
+                <p class="mb-1 findyou-brand">FindYOU</p>
+                <h1 class="home-title">FindYOU</h1>
+                <p class="home-subtitle">
+                    A simple office system to organize categories and keep useful chat entries in one readable place.
+                </p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a asp-controller="Home" asp-action="Login" class="btn btn-warning text-dark">Login</a>
+                    <a asp-controller="ChatEntry" asp-action="Index" class="btn btn-outline-secondary">View Chat Entries</a>
+                </div>
+            </div>
+            <div class="col-lg-5">
+                <div class="home-image">FY</div>
+            </div>
+        </div>
+
+        <div class="row g-3 mt-3">
+            <div class="col-md-4">
+                <div class="home-info">
+                    <h5>Categories</h5>
+                    <p class="mb-0 text-muted">Group saved chat records by purpose or topic.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="home-info">
+                    <h5>Chat Entries</h5>
+                    <p class="mb-0 text-muted">Store titles, links, summaries and notes for quick access.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="home-info">
+                    <h5>Session Login</h5>
+                    <p class="mb-0 text-muted">Use login to access protected management screens.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

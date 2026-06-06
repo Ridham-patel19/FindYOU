@@ -1,0 +1,464 @@
+@model IEnumerable<FindYOU.ChatEntry>
+@using System.Text.Json
+
+@{
+    ViewData["Title"] = "Chat Entry";
+    var selectedCategoryId = Context.Request.Query["categoryId"].ToString();
+    var chatEntries = Model?.Select(chat => new
+    {
+        chat.Id,
+        chat.Title,
+        chat.ChatLink,
+        chat.Summary,
+        chat.Notes,
+        chat.CreatedAt,
+        chat.CategoryId,
+        CategoryName = chat.Category != null ? chat.Category.Name : string.Empty
+    }) ?? Enumerable.Empty<object>();
+}
+
+<style>
+    .chat-entry-page {
+        background: #fff9db;
+        border: 1px solid #f1e6a8;
+        padding: 24px;
+        color: #222;
+    }
+
+    .chat-entry-header,
+    .chat-entry-list-wrap {
+        background: #ffffff;
+        border: 1px solid #eadf9b;
+    }
+
+    .chat-entry-header {
+        padding: 18px 20px;
+        margin-bottom: 18px;
+    }
+
+    .chat-entry-list-wrap {
+        padding: 14px;
+    }
+
+    .chat-entry-title {
+        font-size: 28px;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .chat-entry-subtitle {
+        color: #666;
+        margin: 4px 0 0;
+    }
+
+    .chat-entry-toolbar {
+        display: flex;
+        gap: 10px;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+    }
+
+    .chat-entry-filters {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .chat-entry-card {
+        border: 1px solid #eadf9b;
+        border-radius: 0;
+        height: 100%;
+        box-shadow: 0 2px 8px rgba(138, 109, 0, 0.08);
+    }
+
+    .chat-entry-card .card-header {
+        background: #fff3b0;
+        border-bottom: 1px solid #eadf9b;
+        font-weight: 600;
+        padding: 12px 14px;
+    }
+
+    .chat-entry-card .card-body {
+        padding: 14px;
+    }
+
+    .chat-entry-field {
+        border: 1px solid #f1e6a8;
+        background: #fffdf0;
+        padding: 9px 10px;
+        margin-bottom: 10px;
+    }
+
+    .chat-entry-label {
+        color: #8a6d00;
+        font-size: 12px;
+        font-weight: 700;
+        margin-bottom: 2px;
+        text-transform: lowercase;
+    }
+
+    .chat-entry-value {
+        color: #222;
+        word-break: break-word;
+    }
+
+    .chat-entry-actions {
+        border-top: 1px solid #f1e6a8;
+        padding-top: 12px;
+    }
+
+    .findyou-brand {
+        color: #8a6d00;
+        font-weight: 700;
+    }
+
+    .btn,
+    .form-control,
+    .form-select,
+    .modal-content {
+        border-radius: 0 !important;
+    }
+
+    .window-label {
+        color: #666;
+        font-size: 13px;
+        margin-bottom: 4px;
+    }
+
+    .window-value {
+        background: #fffdf0;
+        border: 1px solid #eadf9b;
+        padding: 10px 12px;
+        margin-bottom: 12px;
+        word-break: break-word;
+    }
+</style>
+
+<div class="chat-entry-page">
+    <div class="chat-entry-header">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+            <div>
+                <p class="mb-1 findyou-brand">FindYOU</p>
+                <h1 class="chat-entry-title">Chat Entry Management</h1>
+                <p class="chat-entry-subtitle">Manage chat entry records for the FindYOU office system.</p>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <a asp-controller="ChatEntry" asp-action="Create" class="btn btn-warning text-dark">Create Chat Entry</a>
+                <a asp-controller="Home" asp-action="Logout" class="btn btn-outline-danger">Logout</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="chat-entry-list-wrap">
+        <div class="chat-entry-toolbar">
+            <div class="fw-semibold">Chat Entries</div>
+            <div class="chat-entry-filters">
+                <select id="categoryFilter" class="form-select" style="max-width: 240px;">
+                    <option value="">Select Categories</option>
+                </select>
+                <input id="chatEntrySearch" class="form-control" style="max-width: 280px;" placeholder="search title..." />
+            </div>
+        </div>
+
+        <div class="row g-3" id="chatEntryCards"></div>
+        <div id="emptyMessage" class="text-center text-muted py-4 d-none">no chat entries found.</div>
+    </div>
+</div>
+
+<form id="antiForgeryForm" method="post">
+    @Html.AntiForgeryToken()
+</form>
+
+<div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="detailModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#fff3b0;">
+                <h5 class="modal-title" id="detailModalTitle">chat entry details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="detailBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <form id="editChatEntryForm">
+                <div class="modal-header" style="background:#fff3b0;">
+                    <h5 class="modal-title" id="editModalTitle">update chat entry</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editId" name="Id" />
+                    <input type="hidden" id="editCreatedAt" name="CreatedAt" />
+                    <div class="mb-3">
+                        <label for="editTitle" class="form-label">title</label>
+                        <input type="text" id="editTitle" name="Title" class="form-control" maxlength="255" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="editChatLink" class="form-label">chat link</label>
+                        <input type="url" id="editChatLink" name="ChatLink" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="editCategoryId" class="form-label">category</label>
+                        <select id="editCategoryId" name="CategoryId" class="form-select" required></select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editSummary" class="form-label">summary</label>
+                        <textarea id="editSummary" name="Summary" class="form-control" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editNotes" class="form-label">notes</label>
+                        <textarea id="editNotes" name="Notes" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">cancel</button>
+                    <button type="submit" class="btn btn-warning text-dark">update</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        $(function () {
+            var chatEntryData = @Html.Raw(JsonSerializer.Serialize(chatEntries));
+            var filteredData = chatEntryData.slice();
+            var categoryData = [];
+            var selectedCategoryId = '@selectedCategoryId';
+            var token = $('#antiForgeryForm input[name="__RequestVerificationToken"]').val();
+            var detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
+            var editModal = new bootstrap.Modal(document.getElementById('editModal'));
+
+            function normalizeCategory(category) {
+                return {
+                    Id: category.Id || category.id,
+                    Name: category.Name || category.name || ''
+                };
+            }
+
+            function lower(value) {
+                return (value || '').toString().toLowerCase();
+            }
+
+            function htmlEncode(value) {
+                return $('<div>').text(value || '').html();
+            }
+
+            function linkHtml(value) {
+                if (!value) {
+                    return '';
+                }
+
+                return '<a href="' + htmlEncode(value) + '" target="_blank" rel="noopener noreferrer">' + htmlEncode(value) + '</a>';
+            }
+
+            function findChatEntry(id) {
+                return chatEntryData.find(function (chat) {
+                    return chat.Id === Number(id);
+                });
+            }
+
+            function renderCards() {
+                var cards = filteredData.map(function (chat) {
+                    var title = lower(chat.Title);
+                    var categoryName = lower(chat.CategoryName || 'uncategorized');
+
+                    return '<div class="col-12 col-md-6 col-xl-4">' +
+                        '<div class="card chat-entry-card" data-id="' + chat.Id + '">' +
+                            '<div class="card-header">' + htmlEncode(title) + '</div>' +
+                            '<div class="card-body d-flex flex-column">' +
+                                '<div class="chat-entry-field">' +
+                                    '<div class="chat-entry-label">category</div>' +
+                                    '<div class="chat-entry-value">' + htmlEncode(categoryName) + '</div>' +
+                                '</div>' +
+                                '<div class="chat-entry-field">' +
+                                    '<div class="chat-entry-label">link</div>' +
+                                    '<div class="chat-entry-value">' + linkHtml(chat.ChatLink) + '</div>' +
+                                '</div>' +
+                                '<div class="chat-entry-actions mt-auto">' +
+                                    '<button type="button" class="btn btn-sm btn-outline-primary me-1 js-detail">details</button>' +
+                                    '<button type="button" class="btn btn-sm btn-outline-warning me-1 js-edit">update</button>' +
+                                    '<button type="button" class="btn btn-sm btn-outline-danger js-delete">delete</button>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>';
+                }).join('');
+
+                $('#chatEntryCards').html(cards);
+                $('#emptyMessage').toggleClass('d-none', filteredData.length !== 0);
+            }
+
+            function applySearch() {
+                var searchValue = $.trim($('#chatEntrySearch').val()).toLowerCase();
+                filteredData = chatEntryData.filter(function (chat) {
+                    return !searchValue || lower(chat.Title).indexOf(searchValue) >= 0;
+                });
+                renderCards();
+            }
+
+            function renderCategoryOptions() {
+                var options = categoryData.map(function (category) {
+                    var selected = String(category.Id) === String(selectedCategoryId) ? ' selected' : '';
+                    return '<option value="' + category.Id + '"' + selected + '>' + htmlEncode(lower(category.Name)) + '</option>';
+                }).join('');
+
+                $('#categoryFilter').append(options);
+                $('#editCategoryId').html(options);
+            }
+
+            function fillDetail(chat) {
+                var detailHtml =
+                    '<div class="window-label">id</div>' +
+                    '<div class="window-value">' + chat.Id + '</div>' +
+                    '<div class="window-label">title</div>' +
+                    '<div class="window-value">' + htmlEncode(lower(chat.Title)) + '</div>' +
+                    '<div class="window-label">chat link</div>' +
+                    '<div class="window-value">' + linkHtml(chat.ChatLink) + '</div>' +
+                    '<div class="window-label">summary</div>' +
+                    '<div class="window-value">' + htmlEncode(lower(chat.Summary)) + '</div>' +
+                    '<div class="window-label">notes</div>' +
+                    '<div class="window-value">' + htmlEncode(lower(chat.Notes)) + '</div>' +
+                    '<div class="window-label">created at</div>' +
+                    '<div class="window-value">' + htmlEncode(lower(chat.CreatedAt)) + '</div>' +
+                    '<div class="window-label">category id</div>' +
+                    '<div class="window-value">' + chat.CategoryId + '</div>' +
+                    '<div class="window-label">category</div>' +
+                    '<div class="window-value">' + htmlEncode(lower(chat.CategoryName)) + '</div>';
+
+                $('#detailBody').html(detailHtml);
+            }
+
+            $('#chatEntrySearch').on('input', applySearch);
+
+            $('#categoryFilter').on('change', function () {
+                var categoryId = $(this).val();
+                var indexUrl = '@Url.Action("Index", "ChatEntry")';
+                window.location.href = categoryId ? indexUrl + '?categoryId=' + categoryId : indexUrl;
+            });
+
+            $('#chatEntryCards').on('click', '.js-detail', function () {
+                var chat = findChatEntry($(this).closest('.chat-entry-card').data('id'));
+                fillDetail(chat);
+                detailModal.show();
+            });
+
+            $('#chatEntryCards').on('click', '.js-edit', function () {
+                var chat = findChatEntry($(this).closest('.chat-entry-card').data('id'));
+                $('#editId').val(chat.Id);
+                $('#editCreatedAt').val(chat.CreatedAt);
+                $('#editTitle').val(lower(chat.Title));
+                $('#editChatLink').val(chat.ChatLink);
+                $('#editCategoryId').val(chat.CategoryId);
+                $('#editSummary').val(lower(chat.Summary));
+                $('#editNotes').val(lower(chat.Notes));
+                editModal.show();
+            });
+
+            $('#chatEntryCards').on('click', '.js-delete', function () {
+                var chat = findChatEntry($(this).closest('.chat-entry-card').data('id'));
+
+                Swal.fire({
+                    title: 'delete chat entry?',
+                    text: 'this will delete "' + lower(chat.Title) + '".',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'delete'
+                }).then(function (result) {
+                    if (!result.isConfirmed) {
+                        return;
+                    }
+
+                    $.ajax({
+                        url: '@Url.Action("Delete", "ChatEntry")',
+                        type: 'POST',
+                        data: {
+                            id: chat.Id,
+                            __RequestVerificationToken: token
+                        },
+                        success: function () {
+                            chatEntryData = chatEntryData.filter(function (item) {
+                                return item.Id !== chat.Id;
+                            });
+                            applySearch();
+                            Swal.fire('deleted', 'chat entry has been deleted.', 'success');
+                        },
+                        error: function () {
+                            Swal.fire('error', 'chat entry could not be deleted.', 'error');
+                        }
+                    });
+                });
+            });
+
+            $('#editChatEntryForm').on('submit', function (event) {
+                event.preventDefault();
+
+                var id = Number($('#editId').val());
+                var title = $.trim($('#editTitle').val()).toLowerCase();
+                var chatLink = $.trim($('#editChatLink').val());
+                var categoryId = Number($('#editCategoryId').val());
+                var summary = $.trim($('#editSummary').val()).toLowerCase();
+                var notes = $.trim($('#editNotes').val()).toLowerCase();
+
+                if (!title || !chatLink || !categoryId) {
+                    Swal.fire('required', 'title, chat link and category are required.', 'info');
+                    return;
+                }
+
+                $.ajax({
+                    url: '@Url.Action("Edit", "ChatEntry")/' + id,
+                    type: 'POST',
+                    data: {
+                        Id: id,
+                        Title: title,
+                        ChatLink: chatLink,
+                        Summary: summary,
+                        Notes: notes,
+                        CreatedAt: $('#editCreatedAt').val(),
+                        CategoryId: categoryId,
+                        __RequestVerificationToken: token
+                    },
+                    success: function () {
+                        var chat = findChatEntry(id);
+                        var category = categoryData.find(function (item) {
+                            return item.Id === categoryId;
+                        });
+
+                        chat.Title = title;
+                        chat.ChatLink = chatLink;
+                        chat.Summary = summary;
+                        chat.Notes = notes;
+                        chat.CategoryId = categoryId;
+                        chat.CategoryName = category ? category.Name : '';
+                        applySearch();
+                        editModal.hide();
+                        Swal.fire('updated', 'chat entry has been updated.', 'success');
+                    },
+                    error: function () {
+                        Swal.fire('error', 'chat entry could not be updated.', 'error');
+                    }
+                });
+            });
+
+            $.get('@Url.Action("GetAll", "Category")', function (categories) {
+                categoryData = (categories || []).map(normalizeCategory);
+                renderCategoryOptions();
+            });
+
+            renderCards();
+        });
+    </script>
+}
