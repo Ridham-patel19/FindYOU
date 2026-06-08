@@ -29,9 +29,16 @@ namespace MyApp.Namespace
         public IActionResult GetAll()
         {
 
-             int result = CheckAuth();
+            //  int result = CheckAuth();
 
-            if(result == 0)
+            // if(result == 0)
+            // {
+            //     return RedirectToAction("Login" , "Home");
+            // }
+
+            int? id = HttpContext.Session.GetInt32("Userid");
+
+            if (!id.HasValue)
             {
                 return RedirectToAction("Login" , "Home");
             }
@@ -139,10 +146,10 @@ namespace MyApp.Namespace
 
         public int CheckAuth()
         {
-            string? result = HttpContext.Session.GetString("User");
+            string? result = HttpContext.Session.GetString("Role");
 
 
-            if(result == "Ridham")
+            if(result == "Admin")
             {
                 return 1;
             }

@@ -27,25 +27,25 @@ public class ChatEntryRepository : IChatEntryInterface
         }
     }
 
-    public IEnumerable<ChatEntry> GetAll()
+    public IEnumerable<ChatEntry> GetAll(int? userid)
     {
         
-        return _context.ChatEntries.Include(x => x.Category).ToList();
+        return _context.ChatEntries.Include(x => x.Category).Where(x => x.UserId == userid).ToList();
     }
 
-   public IEnumerable<ChatEntry> GetByCategory(int id)
+   public List<ChatEntry> GetByCategory(int id , int? userid)
 {
     return _context.ChatEntries
                    .Include(x => x.Category)
-                   .Where(x => x.CategoryId == id)
+                   .Where(x => x.CategoryId == id && x.UserId == userid )
                    .ToList();
 }
 
-    public ChatEntry? GetById(int id)
+    public ChatEntry? GetById(int id , int? userid)
     {
         return _context.ChatEntries
         .Include(x => x.Category)
-        .FirstOrDefault(x => x.Id == id);
+        .FirstOrDefault(x => x.Id == id && x.UserId == userid);
     }
 
     public void Save()

@@ -38,6 +38,17 @@
     .form-control {
         border-radius: 0 !important;
     }
+
+    .register-link {
+        color: #8a6d00;
+        font-weight: 600;
+        text-decoration: none;
+    }
+
+    .register-link:hover {
+        color: #6f5700;
+        text-decoration: underline;
+    }
 </style>
 
 <div class="login-page">
@@ -64,5 +75,10 @@
 
             <button type="submit" class="btn btn-warning text-dark w-100">Login</button>
         </form>
+
+        <p class="mb-0 mt-3 text-center">
+            Don't have an account?
+            <a asp-controller="Home" asp-action="Register" class="register-link">Register</a>
+        </p>
     </div>
 </div>

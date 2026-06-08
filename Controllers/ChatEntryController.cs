@@ -6,6 +6,8 @@ namespace MyApp.Namespace
     public class ChatEntryController : Controller
     {
 
+
+       private  int? UserId ;
         private readonly IChatEntryInterface _repo;
 
         public ChatEntryController(IChatEntryInterface repo)
@@ -23,14 +25,16 @@ namespace MyApp.Namespace
                 return RedirectToAction("Login" , "Home");
             }
     IEnumerable<ChatEntry> chats;
+  
 
     if(categoryId.HasValue)
     {
-        chats = _repo.GetByCategory(categoryId.Value);
+        chats = _repo.GetByCategory(categoryId.Value , UserId);
+        return View(chats);
     }
     else
     {
-        chats = _repo.GetAll();
+         chats = _repo.GetAll(UserId);
     }
 
     return View(chats);
@@ -45,13 +49,13 @@ namespace MyApp.Namespace
             {
                 return RedirectToAction("Login" , "Home");
             }
-            var entry = _repo.GetById(id);
+            var entry = _repo.GetById(id , UserId);
 
             if(entry == null)
             {
                 return NotFound();
             }
-            return View(entry);
+            return Ok(entry);
         }
 
         public IActionResult Create()
@@ -76,9 +80,15 @@ namespace MyApp.Namespace
             if(result == 0)
             {
                 return RedirectToAction("Login" , "Home");
+            }else if(UserId == null)
+            {
+                return RedirectToAction("Login" , "Home");
             }
              if (ModelState.IsValid)
             {
+                int id = (int)UserId;
+
+                chat.UserId = id;
                 _repo.Add(chat);
                 _repo.Save();
 
@@ -95,6 +105,9 @@ namespace MyApp.Namespace
             int result = CheckAuth();
 
             if(result == 0)
+            {
+                return RedirectToAction("Login" , "Home");
+            }else if(UserId == null)
             {
                 return RedirectToAction("Login" , "Home");
             }
@@ -123,6 +136,9 @@ namespace MyApp.Namespace
             if(result == 0)
             {
                 return RedirectToAction("Login" , "Home");
+            }else if(UserId == null)
+            {
+                return RedirectToAction("Login" , "Home");
             }
             _repo.Delete(id);
             _repo.Save();
@@ -130,7 +146,7 @@ namespace MyApp.Namespace
             return RedirectToAction(nameof(Index));
         }
 
-        [HttpPost]
+       
         public IActionResult GetByCategory(int id)
         {
 
@@ -138,9 +154,13 @@ namespace MyApp.Namespace
 
             if(result == 0)
             {
+
+                return RedirectToAction("Login" , "Home");
+            }else if(UserId == null)
+            {
                 return RedirectToAction("Login" , "Home");
             }
-           var chats =  _repo.GetByCategory(id);
+           var chats =  _repo.GetByCategory(id , UserId);
 
          if (!chats.Any())
 {
@@ -154,11 +174,13 @@ namespace MyApp.Namespace
          public int CheckAuth()
         {
             
-            string? result = HttpContext.Session.GetString("User");
+            int? result = HttpContext.Session.GetInt32("Userid");
+            string? role = HttpContext.Session.GetString("Role");
 
 
-            if(result == "Ridham")
+            if(result.HasValue && role == "User")
             {
+                UserId = result;
                 return 1;
             }
             else

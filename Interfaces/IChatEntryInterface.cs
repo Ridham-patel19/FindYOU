@@ -2,11 +2,11 @@
 
 public interface IChatEntryInterface
 {
- IEnumerable<ChatEntry> GetAll();
+ IEnumerable<ChatEntry> GetAll(int? userid);
 
-    ChatEntry? GetById(int id);
+    ChatEntry? GetById(int id , int? userid);
 
-    IEnumerable<ChatEntry> GetByCategory(int id);
+    List<ChatEntry> GetByCategory(int id , int? userid);
 
     void Add(ChatEntry chatEntry);
 

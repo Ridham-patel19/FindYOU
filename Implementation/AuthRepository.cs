@@ -10,11 +10,32 @@ public class AuthRepository : IAuthInterface
     {
         _context = context;
     }
-    public int Login(string email, string password)
+    public User Login(string email, string password)
 {
-    bool exists = _context.Users
-        .Any(x => x.Email == email && x.password == password);
+ User? user = _context.Users
+    .FirstOrDefault(x => x.Email == email && x.password == password);
 
-    return exists ? 1 : 0;
+    return user;
 }
+
+    public int Register(User user)
+    {
+
+       bool isEmailExist =  _context.Users.Any(x=> x.Email == user.Email);
+
+        if (isEmailExist)
+        {
+            return -1;
+        }
+        _context.Users.Add(user);
+
+int rowsAffected = _context.SaveChanges();
+
+if(rowsAffected <= 0)
+{
+    return 0;
+}
+
+return 1;
+    }
 }

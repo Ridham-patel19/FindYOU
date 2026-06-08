@@ -2,5 +2,8 @@
 
 public interface IAuthInterface
 {
-    int Login(string email , string password);
+    User Login(string email , string password);
+
+    int Register(User user);
+    
 }

@@ -15,6 +15,40 @@ public class HomeController : Controller
         _auth = auth;
     }
 
+    public IActionResult Register()
+    {
+        return View();
+    }
+
+    [HttpPost]
+    public IActionResult Register(User user)
+    {
+        if(user == null || !ModelState.IsValid)
+        {
+            ViewBag.Error = "Error while register";
+            return View();
+        }
+
+        int result = _auth.Register(user);
+
+        if(result == -1)
+        {
+            ViewBag.Error = "Email Already Exist !!";
+            return View();
+        }
+        else if(result == 0)
+        {
+             ViewBag.Error = "Error while register";
+            return View();
+        }
+        else
+        {
+             return RedirectToAction("Login");
+        }
+
+
+    }
+
     public IActionResult Index()
     {
         return View();
@@ -43,9 +77,9 @@ public class HomeController : Controller
     [HttpPost]
     public IActionResult Login(string email , string password)
     {
-        int result = _auth.Login(email , password);
+        User result = _auth.Login(email , password);
 
-        if(result == 0)
+        if(result == null)
         {
             ViewBag.Error = "Invalid email or password";
             return View();
@@ -53,7 +87,13 @@ public class HomeController : Controller
         else
         {
 
-            HttpContext.Session.SetString("User" , "Ridham");
+            HttpContext.Session.SetInt32("Userid" , result.Id);
+            HttpContext.Session.SetString("Role" , result.Role);
+
+            if(result.Role == "Admin")
+            {
+                return RedirectToAction("Index" , "Category");
+            }
             return RedirectToAction("Index" , "ChatEntry");
         }
     }
