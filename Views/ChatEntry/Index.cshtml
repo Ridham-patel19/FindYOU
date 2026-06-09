@@ -134,6 +134,66 @@
         margin-bottom: 12px;
         word-break: break-word;
     }
+
+    .detail-meta-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .detail-section {
+        border: 1px solid #eadf9b;
+        background: #fffdf0;
+        padding: 14px;
+        margin-bottom: 12px;
+    }
+
+    .detail-section-title {
+        color: #8a6d00;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+    }
+
+    .detail-section p,
+    .detail-section ul {
+        margin-bottom: 0;
+    }
+
+    .detail-list {
+        padding-left: 20px;
+    }
+
+    .detail-list li + li {
+        margin-top: 6px;
+    }
+
+    .tech-stack-list,
+    .tag-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .tech-stack-list li,
+    .tag-list li {
+        border: 1px solid #eadf9b;
+        background: #ffffff;
+        padding: 6px 9px;
+        font-size: 14px;
+    }
+
+    @@media (max-width: 767.98px) {
+        .detail-meta-grid {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 
 <div class="chat-entry-page">
@@ -263,6 +323,136 @@
                 return '<a href="' + htmlEncode(value) + '" target="_blank" rel="noopener noreferrer">' + htmlEncode(value) + '</a>';
             }
 
+            function textValue(value) {
+                return $.trim((value || '').toString());
+            }
+
+            function removeTags(value) {
+                return textValue(value).replace(/#[^\s#]+/g, '').replace(/\s+/g, ' ').trim();
+            }
+
+            function cleanSectionText(value) {
+                return removeTags(value)
+                    .replace(/^\s*[:\-]+/, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            }
+
+            function extractBetween(text, startPattern, endPattern) {
+                var lowerText = text.toLowerCase();
+                var startMatch = lowerText.match(startPattern);
+
+                if (!startMatch) {
+                    return '';
+                }
+
+                var start = startMatch.index + startMatch[0].length;
+                var rest = text.slice(start);
+                var restLower = rest.toLowerCase();
+                var endMatch = endPattern ? restLower.match(endPattern) : null;
+
+                return endMatch ? rest.slice(0, endMatch.index) : rest;
+            }
+
+            function splitSummaryItems(value) {
+                return cleanSectionText(value)
+                    .split(/\u2705|\n|;/)
+                    .map(function (item) {
+                        return item.replace(/^\s*(features?|and)\s*/i, '').replace(/^[,.\-\s]+/, '').trim();
+                    })
+                    .filter(Boolean);
+            }
+
+            function techItems(value) {
+                var cleaned = cleanSectionText(value).replace(/^[:\-]+/, '').trim();
+
+                if (!cleaned) {
+                    return [];
+                }
+
+                var knownTech = [
+                    'ASP.NET Core MVC',
+                    '.NET 9',
+                    'C#',
+                    'Entity Framework Core',
+                    'PostgreSQL',
+                    'NeonDB',
+                    'HTML',
+                    'CSS',
+                    'Bootstrap',
+                    'Repository Pattern',
+                    'Dependency Injection',
+                    'Session Management'
+                ];
+
+                return knownTech.filter(function (tech) {
+                    return cleaned.toLowerCase().indexOf(tech.toLowerCase()) >= 0;
+                });
+            }
+
+            function tagsFromSummary(value) {
+                return textValue(value).match(/#[^\s#]+/g) || [];
+            }
+
+            function sectionHtml(title, bodyHtml) {
+                if (!bodyHtml) {
+                    return '';
+                }
+
+                return '<section class="detail-section">' +
+                    '<div class="detail-section-title">' + htmlEncode(title) + '</div>' +
+                    bodyHtml +
+                '</section>';
+            }
+
+            function paragraphHtml(value) {
+                var cleaned = cleanSectionText(value);
+                return cleaned ? '<p>' + htmlEncode(cleaned) + '</p>' : '';
+            }
+
+            function listHtml(items, className) {
+                if (!items.length) {
+                    return '';
+                }
+
+                return '<ul class="' + className + '">' + items.map(function (item) {
+                    return '<li>' + htmlEncode(item) + '</li>';
+                }).join('') + '</ul>';
+            }
+
+            function formatCreatedAt(value) {
+                var date = new Date(value);
+
+                if (Number.isNaN(date.getTime())) {
+                    return textValue(value);
+                }
+
+                return date.toLocaleString();
+            }
+
+            function structuredSummaryHtml(summary) {
+                var original = textValue(summary);
+
+                if (!original) {
+                    return sectionHtml('Summary', '<p class="text-muted">No summary added yet.</p>');
+                }
+
+                var purpose = extractBetween(original, /^/, /\bfeatures?\b/);
+                var features = extractBetween(original, /\bfeatures?\b/, /\btech stack\b/);
+                var techStack = extractBetween(original, /\btech stack\b/, /\bthis project helped\b/);
+                var learning = extractBetween(original, /\bthis project helped\b/, /#[^\s#]+/);
+                var tags = tagsFromSummary(original);
+                var html = '';
+
+                html += sectionHtml('Project Purpose', paragraphHtml(purpose || original));
+                html += sectionHtml('Key Features', listHtml(splitSummaryItems(features), 'detail-list'));
+                html += sectionHtml('Tech Stack', listHtml(techItems(techStack), 'tech-stack-list'));
+                html += sectionHtml('Learning Outcome', paragraphHtml(learning ? 'This project helped ' + learning : ''));
+                html += sectionHtml('Tags', listHtml(tags, 'tag-list'));
+
+                return html || sectionHtml('Summary', paragraphHtml(original));
+            }
+
             function findChatEntry(id) {
                 return chatEntryData.find(function (chat) {
                     return chat.Id === Number(id);
@@ -320,22 +510,27 @@
 
             function fillDetail(chat) {
                 var detailHtml =
-                    '<div class="window-label">id</div>' +
-                    '<div class="window-value">' + chat.Id + '</div>' +
-                    '<div class="window-label">title</div>' +
-                    '<div class="window-value">' + htmlEncode(lower(chat.Title)) + '</div>' +
-                    '<div class="window-label">chat link</div>' +
-                    '<div class="window-value">' + linkHtml(chat.ChatLink) + '</div>' +
-                    '<div class="window-label">summary</div>' +
-                    '<div class="window-value">' + htmlEncode(lower(chat.Summary)) + '</div>' +
-                    '<div class="window-label">notes</div>' +
-                    '<div class="window-value">' + htmlEncode(lower(chat.Notes)) + '</div>' +
-                    '<div class="window-label">created at</div>' +
-                    '<div class="window-value">' + htmlEncode(lower(chat.CreatedAt)) + '</div>' +
-                    '<div class="window-label">category id</div>' +
-                    '<div class="window-value">' + chat.CategoryId + '</div>' +
-                    '<div class="window-label">category</div>' +
-                    '<div class="window-value">' + htmlEncode(lower(chat.CategoryName)) + '</div>';
+                    '<div class="detail-meta-grid">' +
+                        '<div>' +
+                            '<div class="window-label">title</div>' +
+                            '<div class="window-value">' + htmlEncode(textValue(chat.Title)) + '</div>' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="window-label">category</div>' +
+                            '<div class="window-value">' + htmlEncode(textValue(chat.CategoryName) || 'Uncategorized') + '</div>' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="window-label">created at</div>' +
+                            '<div class="window-value">' + htmlEncode(formatCreatedAt(chat.CreatedAt)) + '</div>' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="window-label">entry id</div>' +
+                            '<div class="window-value">' + chat.Id + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    sectionHtml('Chat Link', '<p>' + linkHtml(chat.ChatLink) + '</p>') +
+                    structuredSummaryHtml(chat.Summary) +
+                    sectionHtml('Notes', paragraphHtml(chat.Notes));
 
                 $('#detailBody').html(detailHtml);
             }

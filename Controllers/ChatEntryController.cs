@@ -116,6 +116,10 @@ namespace MyApp.Namespace
 
             if (ModelState.IsValid)
             {
+
+                  id = (int)UserId;
+
+                chat.UserId = id;
                 _repo.Update(chat);
                 _repo.Save();
 
