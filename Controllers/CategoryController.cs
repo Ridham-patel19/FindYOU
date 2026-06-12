@@ -149,7 +149,7 @@ namespace MyApp.Namespace
             string? result = HttpContext.Session.GetString("Role");
 
 
-            if(result == "Admin")
+            if(result == "User")
             {
                 return 1;
             }

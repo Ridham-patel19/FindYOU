@@ -4,31 +4,34 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace FindYOU;
 
 public class ChatEntry
-    {
-        public int Id { get; set; }
+{
+    public int Id { get; set; }
 
-        [Required]
-        [StringLength(255)]
-        public string Title { get; set; }
+    [Required]
+    [StringLength(255)]
+    public string Title { get; set; }
 
-        [Required]
-        [Url]
-        public string ChatLink { get; set; }
+    [Required]
+    [Url]
+    public string ChatLink { get; set; }
 
-        public string? Summary { get; set; }
+    // AI Generated Summary
+    public string? Summary { get; set; }
 
-        public string? Notes { get; set; }
+    public string? Notes { get; set; }
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public bool IsPublic { get; set; } = false;
 
-        [Display(Name = "Category")]
-        public int CategoryId { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        [ForeignKey("CategoryId")]
-        public Category? Category { get; set; }
+    [Display(Name = "Category")]
+    public int CategoryId { get; set; }
 
-       public int UserId { get; set; }
+    [ForeignKey(nameof(CategoryId))]
+    public Category? Category { get; set; }
 
-[ForeignKey(nameof(UserId))]
-public User? User { get; set; }
-    }
+    public int UserId { get; set; }
+
+    [ForeignKey(nameof(UserId))]
+    public User? User { get; set; }
+}
