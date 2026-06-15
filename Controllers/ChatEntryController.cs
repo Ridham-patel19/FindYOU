@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using FindYOU;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,9 +11,15 @@ namespace MyApp.Namespace
        private  int? UserId ;
         private readonly IChatEntryInterface _repo;
 
-        public ChatEntryController(IChatEntryInterface repo)
+        private readonly AITagsGeneration _AiTags;
+                private readonly ICategoryInterface _catrepo;
+
+
+        public ChatEntryController(IChatEntryInterface repo,ICategoryInterface catrepo , AITagsGeneration AiTags)
         {
            _repo = repo;
+           _catrepo = catrepo;
+           _AiTags = AiTags;
         }
         // GET: ChatEntryController
       public IActionResult Index(int? categoryId)
@@ -67,12 +74,14 @@ namespace MyApp.Namespace
             {
                 return RedirectToAction("Login" , "Home");
             }
+
+           
             return View();
         }
 
         [HttpPost]
          [ValidateAntiForgeryToken]
-         public IActionResult Create(ChatEntry chat)
+         public async Task<IActionResult> Create(ChatEntry chat)
         {
 
             int result = CheckAuth();
@@ -88,6 +97,27 @@ namespace MyApp.Namespace
             {
                 int id = (int)UserId;
 
+
+
+                 bool iseligible = _catrepo.IsEligible(chat.CategoryId , id);
+
+                 System.Console.WriteLine("Categiry id " + chat.CategoryId);
+                 System.Console.WriteLine("User id : " + id);
+                 System.Console.WriteLine("is eligible result : " + iseligible);
+
+                if (!iseligible)
+                {
+                    return Unauthorized(new
+                    {
+                        message="this category doesnot belongs to you"
+                    });
+                }
+
+                 chat.Category =  _catrepo.GetById(chat.CategoryId , id);
+                
+
+
+                 chat.ChatTags = await _AiTags.GenerateTagsAsync(chat.Title , chat.Category.Name , chat.Summary , chat.Notes);
                 chat.UserId = id;
                 _repo.Add(chat);
                 _repo.Save();
@@ -99,7 +129,7 @@ namespace MyApp.Namespace
 
             [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Edit(int id, ChatEntry chat)
+        public async Task<IActionResult> EditAsync(int id, ChatEntry chat)
         {
 
             int result = CheckAuth();
@@ -118,7 +148,22 @@ namespace MyApp.Namespace
             {
 
                   id = (int)UserId;
+   bool iseligible = _catrepo.IsEligible(chat.CategoryId , id);
 
+                if (!iseligible)
+                {
+                    return Unauthorized(new
+                    {
+                        message="this category doesnot belongs to you"
+                    });
+                }
+
+
+                 chat.Category =  _catrepo.GetById(chat.CategoryId , id);
+                
+
+
+                 chat.ChatTags = await _AiTags.GenerateTagsAsync(chat.Title , chat.Category.Name , chat.Summary , chat.Notes);
                 chat.UserId = id;
                 _repo.Update(chat);
                 _repo.Save();
@@ -144,6 +189,19 @@ namespace MyApp.Namespace
             {
                 return RedirectToAction("Login" , "Home");
             }
+
+
+            // int userid = (int)UserId;
+
+            //    bool iseligible = _catrepo.IsEligible(id , userid);
+
+            //     if (!iseligible)
+            //     {
+            //         return Unauthorized(new
+            //         {
+            //             message="this category doesnot belongs to you"
+            //         });
+            //     }
             _repo.Delete(id);
             _repo.Save();
 
@@ -193,6 +251,48 @@ namespace MyApp.Namespace
             }
         }
 
+[HttpPost]
+public async Task<IActionResult> UpdateChatAccess(int chatid , bool ispublic)
+        {
+
+              int results = CheckAuth();
+
+            if(results == 0)
+            {
+
+                return RedirectToAction("Login" , "Home");
+            }else if(UserId == null)
+            {
+                return RedirectToAction("Login" , "Home");
+            }
+                 int userid = (int)UserId;
+            bool iseligible = _repo.IsEligible(chatid , userid);
+
+            if (!iseligible)
+            {
+                return BadRequest(new
+                {
+                    success = false ,
+                    message = "You cant manipulate this ChatENtry"
+                });
+            }
+           var result =  _repo.UpdateChatAccess(chatid , ispublic);
+
+           if(result <= 0)
+            {
+                return BadRequest(new
+                {
+                     success = false ,
+                    message = "error while updating please try again "
+                });
+            }
+
+            return Ok(new
+            {
+                success = true,
+                message = "IsPublic Updated successfully"
+            });
+        }
 
     }
 }

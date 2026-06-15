@@ -1,0 +1,571 @@
+@{
+    ViewData["Title"] = "Recommendations";
+}
+
+<style>
+    .recommend-page {
+        background: #fff9db;
+        border: 1px solid #f1e6a8;
+        color: #222;
+        padding: 24px;
+    }
+
+    .recommend-header,
+    .recommend-content {
+        background: #ffffff;
+        border: 1px solid #eadf9b;
+    }
+
+    .recommend-header {
+        padding: 18px 20px;
+        margin-bottom: 18px;
+    }
+
+    .recommend-content {
+        padding: 16px;
+    }
+
+    .recommend-title {
+        font-size: 28px;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .recommend-subtitle {
+        color: #666;
+        margin: 4px 0 0;
+    }
+
+    .findyou-brand {
+        color: #8a6d00;
+        font-weight: 700;
+    }
+
+    .recommend-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+    }
+
+    .recommend-count {
+        color: #666;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .recommend-search {
+        max-width: 360px;
+        min-width: min(100%, 260px);
+    }
+
+    .recommend-grid {
+        min-height: 1px;
+    }
+
+    .recommend-card {
+        border: 1px solid #eadf9b;
+        border-radius: 0;
+        background: #ffffff;
+        height: 100%;
+        box-shadow: 0 2px 8px rgba(138, 109, 0, 0.08);
+    }
+
+    .recommend-card .card-header {
+        background: #fff3b0;
+        border-bottom: 1px solid #eadf9b;
+        font-weight: 600;
+        padding: 12px 14px;
+    }
+
+    .recommend-card .card-body {
+        padding: 14px;
+    }
+
+    .recommend-field {
+        background: #fffdf0;
+        border: 1px solid #f1e6a8;
+        padding: 9px 10px;
+    }
+
+    .recommend-label {
+        color: #8a6d00;
+        font-size: 12px;
+        font-weight: 700;
+        margin-bottom: 2px;
+        text-transform: uppercase;
+    }
+
+    .recommend-text {
+        color: #222;
+        margin: 0;
+        word-break: break-word;
+    }
+
+    .recommend-actions {
+        border-top: 1px solid #f1e6a8;
+        padding-top: 12px;
+    }
+
+    .recommend-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .recommend-tag {
+        background: #ffffff;
+        border: 1px solid #eadf9b;
+        color: #8a6d00;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 5px 8px;
+    }
+
+    .recommend-empty,
+    .recommend-loading,
+    .recommend-error {
+        border: 1px dashed #eadf9b;
+        color: #666;
+        padding: 28px 16px;
+        text-align: center;
+    }
+
+    .btn,
+    .form-control,
+    .modal-content {
+        border-radius: 0 !important;
+    }
+
+    .window-label {
+        color: #666;
+        font-size: 13px;
+        margin-bottom: 4px;
+    }
+
+    .window-value {
+        background: #fffdf0;
+        border: 1px solid #eadf9b;
+        padding: 10px 12px;
+        margin-bottom: 12px;
+        word-break: break-word;
+    }
+
+    .detail-meta-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .detail-section {
+        border: 1px solid #eadf9b;
+        background: #fffdf0;
+        padding: 14px;
+        margin-bottom: 12px;
+    }
+
+    .detail-section-title {
+        color: #8a6d00;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+    }
+
+    .detail-section p,
+    .detail-section ul {
+        margin-bottom: 0;
+    }
+
+    .detail-list {
+        padding-left: 20px;
+    }
+
+    .detail-list li + li {
+        margin-top: 6px;
+    }
+
+    .tech-stack-list,
+    .tag-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .tech-stack-list li,
+    .tag-list li {
+        border: 1px solid #eadf9b;
+        background: #ffffff;
+        padding: 6px 9px;
+        font-size: 14px;
+    }
+
+    @@media (max-width: 767.98px) {
+        .detail-meta-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="recommend-page">
+    <div class="recommend-header">
+        <p class="mb-1 findyou-brand">FindYOU</p>
+        <h1 class="recommend-title">Recommended Chats</h1>
+        <p class="recommend-subtitle">Public chats matched with your interest tags.</p>
+    </div>
+
+    <div class="recommend-content">
+        <div class="recommend-toolbar">
+            <div>
+                <div class="fw-semibold">For You</div>
+                <div id="recommendCount" class="recommend-count">Loading recommendations...</div>
+            </div>
+            <input id="recommendSearch" class="form-control recommend-search" placeholder="Search recommended chats..." />
+        </div>
+
+        <div id="recommendLoading" class="recommend-loading">Loading recommendations...</div>
+        <div id="recommendError" class="recommend-error d-none">Recommendations could not be loaded.</div>
+        <div id="recommendGrid" class="row g-3 recommend-grid d-none"></div>
+        <div id="recommendEmpty" class="recommend-empty d-none">No recommended chats found.</div>
+    </div>
+</div>
+
+<div class="modal fade" id="recommendDetailModal" tabindex="-1" aria-labelledby="recommendDetailModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#fff3b0;">
+                <h5 class="modal-title" id="recommendDetailModalTitle">chat entry details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="recommendDetailBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(function () {
+            var recommendationData = [];
+            var filteredData = [];
+            var detailModal = new bootstrap.Modal(document.getElementById('recommendDetailModal'));
+
+            function htmlEncode(value) {
+                return $('<div>').text(value || '').html();
+            }
+
+            function normalizeChat(chat) {
+                var category = chat.Category || chat.category || {};
+
+                return {
+                    Id: chat.Id || chat.id,
+                    Title: chat.Title || chat.title || '',
+                    ChatLink: chat.ChatLink || chat.chatLink || '',
+                    Summary: chat.Summary || chat.summary || '',
+                    Notes: chat.Notes || chat.notes || '',
+                    ChatTags: chat.ChatTags || chat.chatTags || '',
+                    CreatedAt: chat.CreatedAt || chat.createdAt || '',
+                    CategoryName: chat.CategoryName || chat.categoryName || category.Name || category.name || ''
+                };
+            }
+
+            function lower(value) {
+                return (value || '').toString().toLowerCase();
+            }
+
+            function searchableText(chat) {
+                return [
+                    chat.Title,
+                    chat.Summary,
+                    chat.Notes,
+                    chat.ChatTags,
+                    chat.ChatLink
+                ].join(' ').toLowerCase();
+            }
+
+            function textValue(value) {
+                return $.trim((value || '').toString());
+            }
+
+            function shortText(value, fallback) {
+                var text = textValue(value);
+
+                if (!text) {
+                    return fallback;
+                }
+
+                return text.length > 150 ? text.substring(0, 147) + '...' : text;
+            }
+
+            function formatDate(value) {
+                var date = new Date(value);
+
+                if (Number.isNaN(date.getTime())) {
+                    return '';
+                }
+
+                return date.toLocaleDateString();
+            }
+
+            function formatCreatedAt(value) {
+                var date = new Date(value);
+
+                if (Number.isNaN(date.getTime())) {
+                    return textValue(value);
+                }
+
+                return date.toLocaleString();
+            }
+
+            function linkHtml(value) {
+                if (!value) {
+                    return '';
+                }
+
+                return '<a href="' + htmlEncode(value) + '" target="_blank" rel="noopener noreferrer">' + htmlEncode(value) + '</a>';
+            }
+
+            function removeTags(value) {
+                return textValue(value).replace(/#[^\s#]+/g, '').replace(/\s+/g, ' ').trim();
+            }
+
+            function cleanSectionText(value) {
+                return removeTags(value)
+                    .replace(/^\s*[:\-]+/, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            }
+
+            function extractBetween(text, startPattern, endPattern) {
+                var lowerText = text.toLowerCase();
+                var startMatch = lowerText.match(startPattern);
+
+                if (!startMatch) {
+                    return '';
+                }
+
+                var start = startMatch.index + startMatch[0].length;
+                var rest = text.slice(start);
+                var restLower = rest.toLowerCase();
+                var endMatch = endPattern ? restLower.match(endPattern) : null;
+
+                return endMatch ? rest.slice(0, endMatch.index) : rest;
+            }
+
+            function splitSummaryItems(value) {
+                return cleanSectionText(value)
+                    .split(/\u2705|\n|;/)
+                    .map(function (item) {
+                        return item.replace(/^\s*(features?|and)\s*/i, '').replace(/^[,.\-\s]+/, '').trim();
+                    })
+                    .filter(Boolean);
+            }
+
+            function techItems(value) {
+                var cleaned = cleanSectionText(value).replace(/^[:\-]+/, '').trim();
+
+                if (!cleaned) {
+                    return [];
+                }
+
+                var knownTech = [
+                    'ASP.NET Core MVC',
+                    '.NET 9',
+                    'C#',
+                    'Entity Framework Core',
+                    'PostgreSQL',
+                    'NeonDB',
+                    'HTML',
+                    'CSS',
+                    'Bootstrap',
+                    'Repository Pattern',
+                    'Dependency Injection',
+                    'Session Management'
+                ];
+
+                return knownTech.filter(function (tech) {
+                    return cleaned.toLowerCase().indexOf(tech.toLowerCase()) >= 0;
+                });
+            }
+
+            function tagsFromSummary(value) {
+                return textValue(value).match(/#[^\s#]+/g) || [];
+            }
+
+            function sectionHtml(title, bodyHtml) {
+                if (!bodyHtml) {
+                    return '';
+                }
+
+                return '<section class="detail-section">' +
+                    '<div class="detail-section-title">' + htmlEncode(title) + '</div>' +
+                    bodyHtml +
+                '</section>';
+            }
+
+            function paragraphHtml(value) {
+                var cleaned = cleanSectionText(value);
+                return cleaned ? '<p>' + htmlEncode(cleaned) + '</p>' : '';
+            }
+
+            function listHtml(items, className) {
+                if (!items.length) {
+                    return '';
+                }
+
+                return '<ul class="' + className + '">' + items.map(function (item) {
+                    return '<li>' + htmlEncode(item) + '</li>';
+                }).join('') + '</ul>';
+            }
+
+            function tagsListHtml(tags) {
+                var items = textValue(tags).split(/\s+/).filter(Boolean);
+                return listHtml(items, 'tag-list');
+            }
+
+            function structuredSummaryHtml(summary) {
+                var original = textValue(summary);
+
+                if (!original) {
+                    return sectionHtml('Summary', '<p class="text-muted">No summary added yet.</p>');
+                }
+
+                var purpose = extractBetween(original, /^/, /\bfeatures?\b/);
+                var features = extractBetween(original, /\bfeatures?\b/, /\btech stack\b/);
+                var techStack = extractBetween(original, /\btech stack\b/, /\bthis project helped\b/);
+                var learning = extractBetween(original, /\bthis project helped\b/, /#[^\s#]+/);
+                var tags = tagsFromSummary(original);
+                var html = '';
+
+                html += sectionHtml('Project Purpose', paragraphHtml(purpose || original));
+                html += sectionHtml('Key Features', listHtml(splitSummaryItems(features), 'detail-list'));
+                html += sectionHtml('Tech Stack', listHtml(techItems(techStack), 'tech-stack-list'));
+                html += sectionHtml('Learning Outcome', paragraphHtml(learning ? 'This project helped ' + learning : ''));
+                html += sectionHtml('Tags', listHtml(tags, 'tag-list'));
+
+                return html || sectionHtml('Summary', paragraphHtml(original));
+            }
+
+            function findChatEntry(id) {
+                return recommendationData.find(function (chat) {
+                    return chat.Id === Number(id);
+                });
+            }
+
+            function tagsHtml(tags) {
+                var items = $.trim(tags || '').split(/\s+/).filter(Boolean);
+
+                if (!items.length) {
+                    return '<p class="recommend-text text-muted">No tags added.</p>';
+                }
+
+                return '<div class="recommend-tags">' + items.map(function (tag) {
+                    return '<span class="recommend-tag">' + htmlEncode(tag) + '</span>';
+                }).join('') + '</div>';
+            }
+
+            function renderCards() {
+                var cards = filteredData.map(function (chat) {
+                    var createdAt = formatDate(chat.CreatedAt);
+                    var categoryName = lower(chat.CategoryName || 'recommended');
+
+                    return '<div class="col-12 col-md-6 col-xl-4">' +
+                        '<div class="card recommend-card" data-id="' + chat.Id + '">' +
+                            '<div class="card-header">' + htmlEncode(lower(chat.Title) || 'untitled chat') + '</div>' +
+                            '<div class="card-body d-flex flex-column">' +
+                                '<div class="recommend-field">' +
+                                    '<div class="recommend-label">category</div>' +
+                                    '<div class="recommend-text">' + htmlEncode(categoryName) + '</div>' +
+                                '</div>' +
+                                '<div class="recommend-field">' +
+                                    '<div class="recommend-label">summary</div>' +
+                                    '<p class="recommend-text">' + htmlEncode(shortText(chat.Summary, 'No summary available.')) + '</p>' +
+                                '</div>' +
+                                '<div class="recommend-field">' +
+                                    '<div class="recommend-label">tags</div>' +
+                                    tagsHtml(chat.ChatTags) +
+                                '</div>' +
+                                (createdAt ? '<div class="recommend-field"><div class="recommend-label">created</div><p class="recommend-text">' + htmlEncode(createdAt) + '</p></div>' : '') +
+                                '<div class="recommend-actions mt-auto">' +
+                                    '<button type="button" class="btn btn-sm btn-outline-primary me-1 js-detail">details</button>' +
+                                    '<a class="btn btn-sm btn-warning text-dark" href="' + htmlEncode(chat.ChatLink) + '" target="_blank" rel="noopener noreferrer">open chat</a>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>';
+                }).join('');
+
+                $('#recommendGrid').html(cards);
+                $('#recommendGrid').toggleClass('d-none', filteredData.length === 0);
+                $('#recommendEmpty').toggleClass('d-none', filteredData.length !== 0);
+                $('#recommendCount').text(filteredData.length + ' of ' + recommendationData.length + ' recommendations');
+            }
+
+            function applySearch() {
+                var searchValue = $.trim($('#recommendSearch').val()).toLowerCase();
+                filteredData = recommendationData.filter(function (chat) {
+                    return !searchValue || searchableText(chat).indexOf(searchValue) >= 0;
+                });
+                renderCards();
+            }
+
+            function fillDetail(chat) {
+                var detailHtml =
+                    '<div class="detail-meta-grid">' +
+                        '<div>' +
+                            '<div class="window-label">title</div>' +
+                            '<div class="window-value">' + htmlEncode(textValue(chat.Title)) + '</div>' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="window-label">category</div>' +
+                            '<div class="window-value">' + htmlEncode(textValue(chat.CategoryName) || 'Recommended') + '</div>' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="window-label">created at</div>' +
+                            '<div class="window-value">' + htmlEncode(formatCreatedAt(chat.CreatedAt)) + '</div>' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="window-label">entry id</div>' +
+                            '<div class="window-value">' + htmlEncode(chat.Id) + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    sectionHtml('Chat Link', '<p>' + linkHtml(chat.ChatLink) + '</p>') +
+                    structuredSummaryHtml(chat.Summary) +
+                    sectionHtml('Chat Tags', tagsListHtml(chat.ChatTags)) +
+                    sectionHtml('Notes', paragraphHtml(chat.Notes));
+
+                $('#recommendDetailBody').html(detailHtml);
+            }
+
+            $('#recommendSearch').on('input', applySearch);
+
+            $('#recommendGrid').on('click', '.js-detail', function () {
+                var chat = findChatEntry($(this).closest('.recommend-card').data('id'));
+                fillDetail(chat);
+                detailModal.show();
+            });
+
+            $.get('@Url.Action("GetUserRecommendationBasic", "UserAlgo")')
+                .done(function (chats) {
+                    recommendationData = (chats || []).map(normalizeChat);
+                    filteredData = recommendationData.slice();
+                    $('#recommendLoading').addClass('d-none');
+                    renderCards();
+                })
+                .fail(function () {
+                    $('#recommendLoading').addClass('d-none');
+                    $('#recommendError').removeClass('d-none');
+                    $('#recommendCount').text('Unable to load recommendations');
+                });
+        });
+    </script>
+}

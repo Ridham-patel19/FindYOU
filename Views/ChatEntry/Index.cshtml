@@ -11,6 +11,7 @@
         chat.ChatLink,
         chat.Summary,
         chat.Notes,
+        chat.IsPublic,
         chat.CreatedAt,
         chat.CategoryId,
         CategoryName = chat.Category != null ? chat.Category.Name : string.Empty
@@ -163,6 +164,19 @@
         margin-bottom: 0;
     }
 
+    .chat-access-toggle {
+        border: 1px solid #eadf9b;
+        background: #fffdf0;
+        padding: 12px 14px;
+        margin-bottom: 16px;
+    }
+
+    .chat-access-status {
+        color: #666;
+        font-size: 13px;
+        margin-top: 4px;
+    }
+
     .detail-list {
         padding-left: 20px;
     }
@@ -205,6 +219,7 @@
                 <p class="chat-entry-subtitle">Manage chat entry records for the FindYOU office system.</p>
             </div>
             <div class="d-flex flex-wrap gap-2">
+                <a asp-controller="Category" asp-action="Index" class="btn btn-outline-warning text-dark">Categories</a>
                 <a asp-controller="ChatEntry" asp-action="Create" class="btn btn-warning text-dark">Create Chat Entry</a>
                 <a asp-controller="Home" asp-action="Logout" class="btn btn-outline-danger">Logout</a>
             </div>
@@ -325,6 +340,18 @@
 
             function textValue(value) {
                 return $.trim((value || '').toString());
+            }
+
+            function boolValue(value) {
+                return value === true || String(value).toLowerCase() === 'true';
+            }
+
+            function getIsPublic(chat) {
+                if (!chat) {
+                    return false;
+                }
+
+                return boolValue(chat.IsPublic ?? chat.isPublic ?? chat.ispublic);
             }
 
             function removeTags(value) {
@@ -509,7 +536,15 @@
             }
 
             function fillDetail(chat) {
+                var isPublic = getIsPublic(chat);
                 var detailHtml =
+                    '<div class="chat-access-toggle">' +
+                        '<div class="form-check form-switch mb-0">' +
+                            '<input class="form-check-input js-chat-access-toggle" type="checkbox" role="switch" id="chatAccessToggle" data-id="' + chat.Id + '"' + (isPublic ? ' checked' : '') + '>' +
+                            '<label class="form-check-label fw-semibold" for="chatAccessToggle">want to make it public?</label>' +
+                        '</div>' +
+                        '<div class="chat-access-status" id="chatAccessStatus">' + (isPublic ? 'this chat entry is public.' : 'this chat entry is private.') + '</div>' +
+                    '</div>' +
                     '<div class="detail-meta-grid">' +
                         '<div>' +
                             '<div class="window-label">title</div>' +
@@ -534,6 +569,63 @@
 
                 $('#detailBody').html(detailHtml);
             }
+
+            function responseMessage(xhr, fallback) {
+                if (xhr && xhr.responseJSON && xhr.responseJSON.message) {
+                    return xhr.responseJSON.message;
+                }
+
+                if (xhr && xhr.responseText) {
+                    try {
+                        var response = JSON.parse(xhr.responseText);
+                        if (response.message) {
+                            return response.message;
+                        }
+                    } catch (e) {
+                        return xhr.responseText;
+                    }
+                }
+
+                return fallback;
+            }
+
+            $('#detailBody').on('change', '.js-chat-access-toggle', function () {
+                var toggle = $(this);
+                var chatId = Number(toggle.data('id'));
+                var isPublic = toggle.is(':checked');
+                var chat = findChatEntry(chatId);
+
+                toggle.prop('disabled', true);
+                $('#chatAccessStatus').text('updating access...');
+
+                $.ajax({
+                    url: '@Url.Action("UpdateChatAccess", "ChatEntry")',
+                    type: 'POST',
+                    data: {
+                        chatid: chatId,
+                        ispublic: isPublic,
+                        __RequestVerificationToken: token
+                    },
+                    success: function () {
+                        if (chat) {
+                            chat.IsPublic = isPublic;
+                            chat.isPublic = isPublic;
+                            chat.ispublic = isPublic;
+                        }
+
+                        $('#chatAccessStatus').text(isPublic ? 'this chat entry is public.' : 'this chat entry is private.');
+                        Swal.fire('updated', responseMessage(null, 'chat access has been updated.'), 'success');
+                    },
+                    error: function (xhr) {
+                        toggle.prop('checked', !isPublic);
+                        $('#chatAccessStatus').text(!isPublic ? 'this chat entry is public.' : 'this chat entry is private.');
+                        Swal.fire('error', responseMessage(xhr, 'chat access could not be updated.'), 'error');
+                    },
+                    complete: function () {
+                        toggle.prop('disabled', false);
+                    }
+                });
+            });
 
             $('#chatEntrySearch').on('input', applySearch);
 

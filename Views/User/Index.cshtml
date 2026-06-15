@@ -1,0 +1,351 @@
+@{
+    ViewData["Title"] = "Profile";
+}
+
+<style>
+    .user-page {
+        background: #fff9db;
+        border: 1px solid #f1e6a8;
+        padding: 24px;
+        color: #222;
+    }
+
+    .user-header,
+    .user-profile-wrap {
+        background: #ffffff;
+        border: 1px solid #eadf9b;
+    }
+
+    .user-header {
+        padding: 18px 20px;
+        margin-bottom: 18px;
+    }
+
+    .user-profile-wrap {
+        padding: 14px;
+    }
+
+    .user-title {
+        font-size: 28px;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .user-subtitle {
+        color: #666;
+        margin: 4px 0 0;
+    }
+
+    .findyou-brand {
+        color: #8a6d00;
+        font-weight: 700;
+    }
+
+    .profile-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .window-label {
+        color: #666;
+        font-size: 13px;
+        margin-bottom: 4px;
+    }
+
+    .window-value {
+        background: #fffdf0;
+        border: 1px solid #eadf9b;
+        padding: 10px 12px;
+        margin-bottom: 12px;
+        min-height: 44px;
+        word-break: break-word;
+    }
+
+    .profile-actions {
+        border-top: 1px solid #f1e6a8;
+        margin-top: 2px;
+        padding-top: 14px;
+    }
+
+    .btn,
+    .form-control,
+    .modal-content {
+        border-radius: 0 !important;
+    }
+
+    @media (max-width: 767.98px) {
+        .profile-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="user-page">
+    <div class="user-header">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+            <div>
+                <p class="mb-1 findyou-brand">FindYOU</p>
+                <h1 class="user-title">Profile</h1>
+                <p class="user-subtitle">View and manage your FindYOU account details.</p>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <a asp-controller="UserAlgo" asp-action="Index" class="btn btn-outline-warning text-dark">Home</a>
+                <a asp-controller="ChatEntry" asp-action="Index" class="btn btn-outline-warning text-dark">Chat Entries</a>
+                <a asp-controller="Home" asp-action="Logout" class="btn btn-outline-danger">Logout</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="user-profile-wrap">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div class="fw-semibold">User Details</div>
+            <div id="profileStatus" class="text-muted small">loading profile...</div>
+        </div>
+
+        <div id="profileBody">
+            <div class="text-center text-muted py-4">loading user details...</div>
+        </div>
+
+        <div class="profile-actions d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-warning text-dark" id="updateUserBtn" disabled>Update</button>
+            <button type="button" class="btn btn-outline-danger" id="deleteUserBtn" disabled>Delete</button>
+        </div>
+    </div>
+</div>
+
+<form id="antiForgeryForm" method="post">
+    @Html.AntiForgeryToken()
+</form>
+
+<div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="editUserForm">
+                <div class="modal-header" style="background:#fff3b0;">
+                    <h5 class="modal-title" id="editUserModalTitle">Update Profile</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editUserId" name="Id" />
+                    <input type="hidden" id="editUserRole" name="Role" />
+
+                    <div class="mb-3">
+                        <label for="editName" class="form-label">Name</label>
+                        <input type="text" id="editName" name="Name" class="form-control" maxlength="100" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editEmail" class="form-label">Email</label>
+                        <input type="email" id="editEmail" name="Email" class="form-control" maxlength="100" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editPassword" class="form-label">Password</label>
+                        <input type="password" id="editPassword" name="password" class="form-control" maxlength="100" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editInterestTags" class="form-label">Interest Tags</label>
+                        <textarea id="editInterestTags" name="InterestTags" class="form-control" rows="3" placeholder="#aspnet #mvc #postgres"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning text-dark">Update</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        $(function () {
+            var currentUser = null;
+            var token = $('#antiForgeryForm input[name="__RequestVerificationToken"]').val();
+            var editUserModal = new bootstrap.Modal(document.getElementById('editUserModal'));
+
+            function htmlEncode(value) {
+                return $('<div>').text(value || '').html();
+            }
+
+            function prop(obj, pascalName, camelName) {
+                if (!obj) {
+                    return '';
+                }
+
+                return obj[pascalName] ?? obj[camelName] ?? '';
+            }
+
+            function responseMessage(xhr, fallback) {
+                if (xhr && xhr.responseJSON && xhr.responseJSON.message) {
+                    return xhr.responseJSON.message;
+                }
+
+                if (xhr && xhr.responseText) {
+                    try {
+                        var response = JSON.parse(xhr.responseText);
+                        if (response.message) {
+                            return response.message;
+                        }
+                    } catch (e) {
+                        return xhr.responseText;
+                    }
+                }
+
+                return fallback;
+            }
+
+            function normalizeUser(user) {
+                return {
+                    Id: prop(user, 'Id', 'id'),
+                    Name: prop(user, 'Name', 'name'),
+                    Email: prop(user, 'Email', 'email'),
+                    password: prop(user, 'password', 'password'),
+                    Role: prop(user, 'Role', 'role') || 'User',
+                    InterestTags: prop(user, 'InterestTags', 'interestTags')
+                };
+            }
+
+            function renderProfile(user) {
+                var interests = user.InterestTags || 'No interest tags added yet.';
+                var html =
+                    '<div class="profile-grid">' +
+                        '<div>' +
+                            '<div class="window-label">User Id</div>' +
+                            '<div class="window-value">' + htmlEncode(user.Id) + '</div>' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="window-label">Role</div>' +
+                            '<div class="window-value">' + htmlEncode(user.Role) + '</div>' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="window-label">Name</div>' +
+                            '<div class="window-value">' + htmlEncode(user.Name) + '</div>' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="window-label">Email</div>' +
+                            '<div class="window-value">' + htmlEncode(user.Email) + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="window-label">Interest Tags</div>' +
+                    '<div class="window-value">' + htmlEncode(interests) + '</div>';
+
+                $('#profileBody').html(html);
+                $('#profileStatus').text('profile loaded');
+                $('#updateUserBtn, #deleteUserBtn').prop('disabled', false);
+            }
+
+            function loadProfile() {
+                $('#profileStatus').text('loading profile...');
+                $('#updateUserBtn, #deleteUserBtn').prop('disabled', true);
+
+                $.get('@Url.Action("Details", "User")')
+                    .done(function (user) {
+                        currentUser = normalizeUser(user);
+                        renderProfile(currentUser);
+                    })
+                    .fail(function (xhr) {
+                        $('#profileBody').html('<div class="text-center text-muted py-4">profile could not be loaded.</div>');
+                        $('#profileStatus').text('load failed');
+                        Swal.fire('Error', responseMessage(xhr, 'User details could not be loaded.'), 'error');
+                    });
+            }
+
+            $('#updateUserBtn').on('click', function () {
+                if (!currentUser) {
+                    return;
+                }
+
+                $('#editUserId').val(currentUser.Id);
+                $('#editUserRole').val(currentUser.Role);
+                $('#editName').val(currentUser.Name);
+                $('#editEmail').val(currentUser.Email);
+                $('#editPassword').val(currentUser.password);
+                $('#editInterestTags').val(currentUser.InterestTags);
+                editUserModal.show();
+            });
+
+            $('#deleteUserBtn').on('click', function () {
+                if (!currentUser) {
+                    return;
+                }
+
+                Swal.fire({
+                    title: 'Delete profile?',
+                    text: 'This will delete your account "' + currentUser.Name + '".',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Delete'
+                }).then(function (result) {
+                    if (!result.isConfirmed) {
+                        return;
+                    }
+
+                    $.ajax({
+                        url: '@Url.Action("Delete", "User")',
+                        type: 'POST',
+                        data: {
+                            __RequestVerificationToken: token
+                        },
+                        success: function (response) {
+                            Swal.fire('Deleted', responseMessage({ responseJSON: response }, 'User deleted successfully.'), 'success')
+                                .then(function () {
+                                    window.location.href = '@Url.Action("Logout", "Home")';
+                                });
+                        },
+                        error: function (xhr) {
+                            Swal.fire('Error', responseMessage(xhr, 'User could not be deleted.'), 'error');
+                        }
+                    });
+                });
+            });
+
+            $('#editUserForm').on('submit', function (event) {
+                event.preventDefault();
+
+                var id = Number($('#editUserId').val());
+                var name = $.trim($('#editName').val());
+                var email = $.trim($('#editEmail').val());
+                var password = $('#editPassword').val();
+                var role = $('#editUserRole').val() || 'User';
+                var interestTags = $.trim($('#editInterestTags').val());
+
+                if (!name || !email || !password) {
+                    Swal.fire('Required', 'Name, email and password are required.', 'info');
+                    return;
+                }
+
+                $.ajax({
+                    url: '@Url.Action("Edit", "User")',
+                    type: 'POST',
+                    data: {
+                        Id: id,
+                        Name: name,
+                        Email: email,
+                        password: password,
+                        Role: role,
+                        InterestTags: interestTags,
+                        __RequestVerificationToken: token
+                    },
+                    success: function (user) {
+                        currentUser = normalizeUser(user);
+                        renderProfile(currentUser);
+                        editUserModal.hide();
+                        Swal.fire('Updated', 'User profile has been updated.', 'success');
+                    },
+                    error: function (xhr) {
+                        Swal.fire('Error', responseMessage(xhr, 'User profile could not be updated.'), 'error');
+                    }
+                });
+            });
+
+            loadProfile();
+        });
+    </script>
+}

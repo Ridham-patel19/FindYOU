@@ -2,15 +2,16 @@
 
 public interface ICategoryInterface
 {
-IEnumerable<Category> GetAll();
+IEnumerable<Category> GetAll(int userId);
 
-    Category? GetById(int id);
+    Category? GetById(int id , int userId);
 
     void Add(Category category);
 
     void Update(Category category);
 
-    void Delete(int id);
+    void Delete(int id );
 
-    void Save();
+    public bool IsEligible(int categoryId, int userId);
+       void Save();
 }

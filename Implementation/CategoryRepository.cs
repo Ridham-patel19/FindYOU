@@ -1,4 +1,6 @@
 ﻿
+using Microsoft.EntityFrameworkCore;
+
 namespace FindYOU;
 
 public class CategoryRepository : ICategoryInterface
@@ -17,6 +19,7 @@ public class CategoryRepository : ICategoryInterface
 
     public void Delete(int id)
     {
+        
          var category = _context.Categories.Find(id);
 
         if (category != null)
@@ -25,15 +28,16 @@ public class CategoryRepository : ICategoryInterface
         }
     }
 
-    public IEnumerable<Category> GetAll()
+    public IEnumerable<Category> GetAll(int userId)
     {
         
-        return _context.Categories.ToList();
+        return _context.Categories.Where(x=> x.UserId == userId).ToList();
     }
 
-    public Category? GetById(int id)
+    public Category? GetById(int id , int userId)
     {
-        return _context.Categories.Find(id);
+        return _context.Categories
+    .FirstOrDefault(x => x.Id == id && x.UserId == userId);
     }
 
     public void Save()
@@ -46,5 +50,10 @@ public class CategoryRepository : ICategoryInterface
         _context.Categories.Update(category);
     }
 
+public bool IsEligible(int categoryId, int userId)
+{
+    return _context.Categories
+        .Any(x => x.Id == categoryId && x.UserId == userId);
+}
     
 }

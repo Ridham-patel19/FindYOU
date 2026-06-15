@@ -79,6 +79,9 @@ public class HomeController : Controller
     {
         User result = _auth.Login(email , password);
 
+
+        System.Console.WriteLine(result.Id + result.Role);
+
         if(result == null)
         {
             ViewBag.Error = "Invalid email or password";
@@ -90,10 +93,6 @@ public class HomeController : Controller
             HttpContext.Session.SetInt32("Userid" , result.Id);
             HttpContext.Session.SetString("Role" , result.Role);
 
-            if(result.Role == "Admin")
-            {
-                return RedirectToAction("Index" , "Category");
-            }
             return RedirectToAction("Index" , "ChatEntry");
         }
     }

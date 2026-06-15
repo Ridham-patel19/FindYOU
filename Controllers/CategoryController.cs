@@ -5,7 +5,7 @@ namespace MyApp.Namespace
 {
     public class CategoryController : Controller
     {
-
+           private int userId;
         private readonly ICategoryInterface _repo;
 
         public CategoryController(ICategoryInterface repo)
@@ -18,11 +18,13 @@ namespace MyApp.Namespace
 
             int result = CheckAuth();
 
+            System.Console.WriteLine(userId);
+
             if(result == 0)
             {
                 return RedirectToAction("Login" , "Home");
             }
-            var categories = _repo.GetAll();
+            var categories = _repo.GetAll(userId);
             return View(categories);
         }
 
@@ -38,11 +40,14 @@ namespace MyApp.Namespace
 
             int? id = HttpContext.Session.GetInt32("Userid");
 
+
             if (!id.HasValue)
             {
                 return RedirectToAction("Login" , "Home");
             }
-                        var categories = _repo.GetAll();
+
+            int userid = (int)id; 
+                        var categories = _repo.GetAll(userid);
                   return Ok(categories);
         }
 
@@ -56,7 +61,7 @@ namespace MyApp.Namespace
             {
                 return RedirectToAction("Login" , "Home");
             }
-            var category = _repo.GetById(id);
+            var category = _repo.GetById(id , userId);
 
             if(category == null)
             {
@@ -90,6 +95,7 @@ namespace MyApp.Namespace
             }
             if (ModelState.IsValid)
             {
+                category.UserId = userId;
                 _repo.Add(category);
                 _repo.Save();
 
@@ -115,6 +121,7 @@ namespace MyApp.Namespace
 
             if (ModelState.IsValid)
             {
+                category.UserId = userId;
                 _repo.Update(category);
                 _repo.Save();
 
@@ -133,7 +140,9 @@ namespace MyApp.Namespace
 
              int result = CheckAuth();
 
-            if(result == 0)
+             bool iseligible = _repo.IsEligible(id , userId);
+
+            if(result == 0 && !iseligible)
             {
                 return RedirectToAction("Login" , "Home");
             }
@@ -147,10 +156,12 @@ namespace MyApp.Namespace
         public int CheckAuth()
         {
             string? result = HttpContext.Session.GetString("Role");
+            int? id = HttpContext.Session.GetInt32("Userid");
 
 
-            if(result == "Admin")
+            if(result == "User" && id !=null)
             {
+                userId = (int)id;
                 return 1;
             }
             else

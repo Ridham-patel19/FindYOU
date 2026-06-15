@@ -1,0 +1,3161 @@
+diff --git a/Controllers/CategoryController.cs b/Controllers/CategoryController.cs
+index 663ed8c..2b43506 100644
+--- a/Controllers/CategoryController.cs
++++ b/Controllers/CategoryController.cs
+@@ -5,7 +5,7 @@ namespace MyApp.Namespace
+ {
+     public class CategoryController : Controller
+     {
+-
++           private int userId;
+         private readonly ICategoryInterface _repo;
+ 
+         public CategoryController(ICategoryInterface repo)
+@@ -18,11 +18,13 @@ namespace MyApp.Namespace
+ 
+             int result = CheckAuth();
+ 
++            System.Console.WriteLine(userId);
++
+             if(result == 0)
+             {
+                 return RedirectToAction("Login" , "Home");
+             }
+-            var categories = _repo.GetAll();
++            var categories = _repo.GetAll(userId);
+             return View(categories);
+         }
+ 
+@@ -38,11 +40,14 @@ namespace MyApp.Namespace
+ 
+             int? id = HttpContext.Session.GetInt32("Userid");
+ 
++
+             if (!id.HasValue)
+             {
+                 return RedirectToAction("Login" , "Home");
+             }
+-                        var categories = _repo.GetAll();
++
++            int userid = (int)id; 
++                        var categories = _repo.GetAll(userid);
+                   return Ok(categories);
+         }
+ 
+@@ -56,7 +61,7 @@ namespace MyApp.Namespace
+             {
+                 return RedirectToAction("Login" , "Home");
+             }
+-            var category = _repo.GetById(id);
++            var category = _repo.GetById(id , userId);
+ 
+             if(category == null)
+             {
+@@ -90,6 +95,7 @@ namespace MyApp.Namespace
+             }
+             if (ModelState.IsValid)
+             {
++                category.UserId = userId;
+                 _repo.Add(category);
+                 _repo.Save();
+ 
+@@ -115,6 +121,7 @@ namespace MyApp.Namespace
+ 
+             if (ModelState.IsValid)
+             {
++                category.UserId = userId;
+                 _repo.Update(category);
+                 _repo.Save();
+ 
+@@ -133,7 +140,9 @@ namespace MyApp.Namespace
+ 
+              int result = CheckAuth();
+ 
+-            if(result == 0)
++             bool iseligible = _repo.IsEligible(id , userId);
++
++            if(result == 0 && !iseligible)
+             {
+                 return RedirectToAction("Login" , "Home");
+             }
+@@ -147,10 +156,12 @@ namespace MyApp.Namespace
+         public int CheckAuth()
+         {
+             string? result = HttpContext.Session.GetString("Role");
++            int? id = HttpContext.Session.GetInt32("Userid");
+ 
+ 
+-            if(result == "Admin")
++            if(result == "User" && id !=null)
+             {
++                userId = (int)id;
+                 return 1;
+             }
+             else
+diff --git a/Controllers/ChatEntryController.cs b/Controllers/ChatEntryController.cs
+index 99b05cb..faac5ea 100644
+--- a/Controllers/ChatEntryController.cs
++++ b/Controllers/ChatEntryController.cs
+@@ -1,3 +1,4 @@
++using System.Threading.Tasks;
+ using FindYOU;
+ using Microsoft.AspNetCore.Mvc;
+ 
+@@ -10,9 +11,15 @@ namespace MyApp.Namespace
+        private  int? UserId ;
+         private readonly IChatEntryInterface _repo;
+ 
+-        public ChatEntryController(IChatEntryInterface repo)
++        private readonly AITagsGeneration _AiTags;
++                private readonly ICategoryInterface _catrepo;
++
++
++        public ChatEntryController(IChatEntryInterface repo,ICategoryInterface catrepo , AITagsGeneration AiTags)
+         {
+            _repo = repo;
++           _catrepo = catrepo;
++           _AiTags = AiTags;
+         }
+         // GET: ChatEntryController
+       public IActionResult Index(int? categoryId)
+@@ -67,12 +74,14 @@ namespace MyApp.Namespace
+             {
+                 return RedirectToAction("Login" , "Home");
+             }
++
++           
+             return View();
+         }
+ 
+         [HttpPost]
+          [ValidateAntiForgeryToken]
+-         public IActionResult Create(ChatEntry chat)
++         public async Task<IActionResult> Create(ChatEntry chat)
+         {
+ 
+             int result = CheckAuth();
+@@ -88,6 +97,27 @@ namespace MyApp.Namespace
+             {
+                 int id = (int)UserId;
+ 
++
++
++                 bool iseligible = _catrepo.IsEligible(chat.CategoryId , id);
++
++                 System.Console.WriteLine("Categiry id " + chat.CategoryId);
++                 System.Console.WriteLine("User id : " + id);
++                 System.Console.WriteLine("is eligible result : " + iseligible);
++
++                if (!iseligible)
++                {
++                    return Unauthorized(new
++                    {
++                        message="this category doesnot belongs to you"
++                    });
++                }
++
++                 chat.Category =  _catrepo.GetById(chat.CategoryId , id);
++                
++
++
++                 chat.ChatTags = await _AiTags.GenerateTagsAsync(chat.Title , chat.Category.Name , chat.Summary , chat.Notes);
+                 chat.UserId = id;
+                 _repo.Add(chat);
+                 _repo.Save();
+@@ -99,7 +129,7 @@ namespace MyApp.Namespace
+ 
+             [HttpPost]
+         [ValidateAntiForgeryToken]
+-        public IActionResult Edit(int id, ChatEntry chat)
++        public async Task<IActionResult> EditAsync(int id, ChatEntry chat)
+         {
+ 
+             int result = CheckAuth();
+@@ -118,7 +148,22 @@ namespace MyApp.Namespace
+             {
+ 
+                   id = (int)UserId;
++   bool iseligible = _catrepo.IsEligible(chat.CategoryId , id);
+ 
++                if (!iseligible)
++                {
++                    return Unauthorized(new
++                    {
++                        message="this category doesnot belongs to you"
++                    });
++                }
++
++
++                 chat.Category =  _catrepo.GetById(chat.CategoryId , id);
++                
++
++
++                 chat.ChatTags = await _AiTags.GenerateTagsAsync(chat.Title , chat.Category.Name , chat.Summary , chat.Notes);
+                 chat.UserId = id;
+                 _repo.Update(chat);
+                 _repo.Save();
+@@ -144,6 +189,19 @@ namespace MyApp.Namespace
+             {
+                 return RedirectToAction("Login" , "Home");
+             }
++
++
++            // int userid = (int)UserId;
++
++            //    bool iseligible = _catrepo.IsEligible(id , userid);
++
++            //     if (!iseligible)
++            //     {
++            //         return Unauthorized(new
++            //         {
++            //             message="this category doesnot belongs to you"
++            //         });
++            //     }
+             _repo.Delete(id);
+             _repo.Save();
+ 
+@@ -193,6 +251,48 @@ namespace MyApp.Namespace
+             }
+         }
+ 
++[HttpPost]
++public async Task<IActionResult> UpdateChatAccess(int chatid , bool ispublic)
++        {
++
++              int results = CheckAuth();
++
++            if(results == 0)
++            {
++
++                return RedirectToAction("Login" , "Home");
++            }else if(UserId == null)
++            {
++                return RedirectToAction("Login" , "Home");
++            }
++                 int userid = (int)UserId;
++            bool iseligible = _repo.IsEligible(chatid , userid);
++
++            if (!iseligible)
++            {
++                return BadRequest(new
++                {
++                    success = false ,
++                    message = "You cant manipulate this ChatENtry"
++                });
++            }
++           var result =  _repo.UpdateChatAccess(chatid , ispublic);
++
++           if(result <= 0)
++            {
++                return BadRequest(new
++                {
++                     success = false ,
++                    message = "error while updating please try again "
++                });
++            }
++
++            return Ok(new
++            {
++                success = true,
++                message = "IsPublic Updated successfully"
++            });
++        }
+ 
+     }
+ }
+diff --git a/Controllers/HomeController.cs b/Controllers/HomeController.cs
+index fc0db25..ff45407 100644
+--- a/Controllers/HomeController.cs
++++ b/Controllers/HomeController.cs
+@@ -79,6 +79,9 @@ public class HomeController : Controller
+     {
+         User result = _auth.Login(email , password);
+ 
++
++        System.Console.WriteLine(result.Id + result.Role);
++
+         if(result == null)
+         {
+             ViewBag.Error = "Invalid email or password";
+@@ -90,10 +93,6 @@ public class HomeController : Controller
+             HttpContext.Session.SetInt32("Userid" , result.Id);
+             HttpContext.Session.SetString("Role" , result.Role);
+ 
+-            if(result.Role == "Admin")
+-            {
+-                return RedirectToAction("Index" , "Category");
+-            }
+             return RedirectToAction("Index" , "ChatEntry");
+         }
+     }
+diff --git a/Controllers/UserAlgoController.cs b/Controllers/UserAlgoController.cs
+new file mode 100644
+index 0000000..d5a55c7
+--- /dev/null
++++ b/Controllers/UserAlgoController.cs
+@@ -0,0 +1,32 @@
++using FindYOU;
++using Microsoft.AspNetCore.Mvc;
++
++namespace MyApp.Namespace
++{
++    public class UserAlgoController : Controller
++    {
++
++        private readonly IUserAlgoInterface _algoRepo;
++
++        public UserAlgoController(IUserAlgoInterface algo)
++        {
++            _algoRepo = algo;
++        }
++
++
++        public IActionResult Index()
++        {
++            return View();
++        }
++        // GET: UserAlgoController
++      public async Task<IActionResult> GetUserRecommendationBasic()
++        {
++            int? userid = HttpContext.Session.GetInt32("Userid");
++            int id = (int)userid;
++            var chats = await _algoRepo.GetRecommendedChatsAsync(id);
++
++            return Ok(chats);
++        }
++
++    }
++}
+diff --git a/Controllers/UserController.cs b/Controllers/UserController.cs
+new file mode 100644
+index 0000000..04a2d3a
+--- /dev/null
++++ b/Controllers/UserController.cs
+@@ -0,0 +1,160 @@
++using FindYOU;
++using FindYOU.Repositories;
++using Microsoft.AspNetCore.Mvc;
++
++namespace MyApp.Namespace
++{
++    public class UserController : Controller
++    {
++        private int userId;
++        private readonly IUserInterface _repo;
++
++        public UserController(IUserInterface repo)
++        {
++            _repo = repo;
++        }
++
++        // GET: UserController
++        public IActionResult Index()
++        {
++            int result = CheckAuth();
++
++            if (result == 0)
++            {
++                return RedirectToAction("Login", "Home");
++            }
++
++            return View("Index");
++        }
++
++        // GET: UserController/GetAll  -> Admin only
++        public async Task<IActionResult> GetAll()
++        {
++            string? role = HttpContext.Session.GetString("Role");
++            int? id = HttpContext.Session.GetInt32("Userid");
++
++            if (role != "Admin" || id == null)
++            {
++                return StatusCode(403, new { message = "Access denied. Admins only." });
++            }
++
++            userId = (int)id;
++
++            try
++            {
++                var users = await _repo.GetAllAsync();
++                return Ok(users);
++            }
++            catch (Exception ex)
++            {
++                return StatusCode(500, new { message = "An error occurred while retrieving users.", error = ex.Message });
++            }
++        }
++
++        // GET: UserController/Details  -> returns the logged-in user's own profile
++        public async Task<IActionResult> Details()
++        {
++            int result = CheckAuth();
++
++            if (result == 0)
++            {
++                return RedirectToAction("Login", "Home");
++            }
++
++            try
++            {
++                var user = await _repo.GetByIdAsync(userId);
++
++                if (user == null)
++                {
++                    return NotFound(new { message = "User not found." });
++                }
++
++                return Ok(user);
++            }
++            catch (Exception ex)
++            {
++                return StatusCode(500, new { message = "An error occurred while retrieving the user.", error = ex.Message });
++            }
++        }
++
++        // POST: UserController/Edit  -> updates the logged-in user's own profile
++        [HttpPost]
++        [ValidateAntiForgeryToken]
++        public async Task<IActionResult> Edit(User user)
++        {
++            int result = CheckAuth();
++
++            if (result == 0)
++            {
++                return RedirectToAction("Login", "Home");
++            }
++
++            if (!ModelState.IsValid)
++            {
++                return BadRequest(ModelState);
++            }
++
++            try
++            {
++                var updatedUser = await _repo.UpdateAsync(userId, user);
++
++                if (updatedUser == null)
++                {
++                    return NotFound(new { message = "User not found." });
++                }
++
++                return Ok(updatedUser);
++            }
++            catch (Exception ex)
++            {
++                return StatusCode(500, new { message = "An error occurred while updating the user.", error = ex.Message });
++            }
++        }
++
++        // POST: UserController/Delete  -> deletes the logged-in user's own account
++        [HttpPost, ActionName("Delete")]
++        [ValidateAntiForgeryToken]
++        public async Task<IActionResult> DeleteConfirmed()
++        {
++            int result = CheckAuth();
++
++            if (result == 0)
++            {
++                return RedirectToAction("Login", "Home");
++            }
++
++            try
++            {
++                var deleted = await _repo.DeleteAsync(userId);
++
++                if (!deleted)
++                {
++                    return NotFound(new { message = "User not found." });
++                }
++
++                return Ok(new { message = "User deleted successfully." });
++            }
++            catch (Exception ex)
++            {
++                return StatusCode(500, new { message = "An error occurred while deleting the user.", error = ex.Message });
++            }
++        }
++
++        public int CheckAuth()
++        {
++            string? result = HttpContext.Session.GetString("Role");
++            int? id = HttpContext.Session.GetInt32("Userid");
++
++            if (result == "User" && id != null)
++            {
++                userId = (int)id;
++                return 1;
++            }
++            else
++            {
++                return 0;
++            }
++        }
++    }
++}
+\ No newline at end of file
+diff --git a/Implementation/CategoryRepository.cs b/Implementation/CategoryRepository.cs
+index 67fc730..e0a4239 100644
+--- a/Implementation/CategoryRepository.cs
++++ b/Implementation/CategoryRepository.cs
+@@ -1,4 +1,6 @@
+ ﻿
++using Microsoft.EntityFrameworkCore;
++
+ namespace FindYOU;
+ 
+ public class CategoryRepository : ICategoryInterface
+@@ -17,6 +19,7 @@ public class CategoryRepository : ICategoryInterface
+ 
+     public void Delete(int id)
+     {
++        
+          var category = _context.Categories.Find(id);
+ 
+         if (category != null)
+@@ -25,15 +28,16 @@ public class CategoryRepository : ICategoryInterface
+         }
+     }
+ 
+-    public IEnumerable<Category> GetAll()
++    public IEnumerable<Category> GetAll(int userId)
+     {
+         
+-        return _context.Categories.ToList();
++        return _context.Categories.Where(x=> x.UserId == userId).ToList();
+     }
+ 
+-    public Category? GetById(int id)
++    public Category? GetById(int id , int userId)
+     {
+-        return _context.Categories.Find(id);
++        return _context.Categories
++    .FirstOrDefault(x => x.Id == id && x.UserId == userId);
+     }
+ 
+     public void Save()
+@@ -46,5 +50,10 @@ public class CategoryRepository : ICategoryInterface
+         _context.Categories.Update(category);
+     }
+ 
++public bool IsEligible(int categoryId, int userId)
++{
++    return _context.Categories
++        .Any(x => x.Id == categoryId && x.UserId == userId);
++}
+     
+ }
+diff --git a/Implementation/ChatEntryRepository.cs b/Implementation/ChatEntryRepository.cs
+index 271b701..9be9eb6 100644
+--- a/Implementation/ChatEntryRepository.cs
++++ b/Implementation/ChatEntryRepository.cs
+@@ -48,6 +48,11 @@ public class ChatEntryRepository : IChatEntryInterface
+         .FirstOrDefault(x => x.Id == id && x.UserId == userid);
+     }
+ 
++    public bool IsEligible(int chatId, int userId)
++    {
++       return _context.ChatEntries.Any(x => x.Id == chatId && x.UserId == userId);
++    }
++
+     public void Save()
+     {
+         _context.SaveChanges();
+@@ -58,6 +63,26 @@ public class ChatEntryRepository : IChatEntryInterface
+         _context.ChatEntries.Update(chatEntry);
+     }
+ 
++public int UpdateChatAccess(int id , bool isPublic)
++    {
++       ChatEntry chat = new ChatEntry
++       {
++           Id = id,
++           IsPublic = isPublic
++       };
++
++System.Console.WriteLine(isPublic);
++//its just store meta dat of this obj its in DB 
++          _context.ChatEntries.Attach(chat);
++   _context.Entry(chat).Property(x => x.IsPublic).IsModified = true;
+ 
++   int rows =  _context.SaveChanges();
++
++   System.Console.WriteLine(rows);
++
++   return rows>0 ? 1 : 0;
++
++
++    }
+     
+ }
+diff --git a/Implementation/UserAlgoRepository.cs b/Implementation/UserAlgoRepository.cs
+new file mode 100644
+index 0000000..346c4a8
+--- /dev/null
++++ b/Implementation/UserAlgoRepository.cs
+@@ -0,0 +1,42 @@
++﻿
++
++using Microsoft.EntityFrameworkCore;
++
++namespace FindYOU;
++
++public class UserAlgoRepository : IUserAlgoInterface
++{
++
++     private readonly ApplicationDbContext _context;
++
++    public UserAlgoRepository(ApplicationDbContext context)
++    {
++        _context = context;
++    }
++
++    public async Task<List<ChatEntry>> GetRecommendedChatsAsync(int userId)
++    {
++        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
++
++        if(user == null || string.IsNullOrWhiteSpace(user.InterestTags))
++        {
++            return new List<ChatEntry>();
++        }
++        var interestList = user.InterestTags
++            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
++            .Select(tag => tag.ToLower())
++            .ToList();
++
++        var chats = await _context.ChatEntries
++        .Include(c => c.Category)
++        .Where(c =>
++            c.IsPublic  == true &&
++            c.ChatTags != null &&
++             interestList.Any(tag =>
++            c.ChatTags.ToLower().Contains(tag)))
++        .ToListAsync();
++
++        return chats;
++    }
++}
++
+diff --git a/Implementation/UserRepository.cs b/Implementation/UserRepository.cs
+new file mode 100644
+index 0000000..6833708
+--- /dev/null
++++ b/Implementation/UserRepository.cs
+@@ -0,0 +1,52 @@
++﻿using Microsoft.EntityFrameworkCore;
++using FindYOU.Models;
++using FindYOU;
++
++namespace FindYOU.Repositories;
++
++public class UserRepository : IUserInterface
++{
++    private readonly ApplicationDbContext _context;
++
++    public UserRepository(ApplicationDbContext context)
++    {
++        _context = context;
++    }
++
++    public async Task<IEnumerable<User>> GetAllAsync()
++    {
++        return await _context.Users.ToListAsync();
++    }
++
++    public async Task<User?> GetByIdAsync(int id)
++    {
++        return await _context.Users.FindAsync(id);
++    }
++
++    public async Task<User?> UpdateAsync(int id, User user)
++    {
++        var existingUser = await _context.Users.FindAsync(id);
++        if (existingUser == null)
++            return null;
++
++        existingUser.Name = user.Name;
++        existingUser.Email = user.Email;
++        existingUser.password = user.password;
++        existingUser.Role = user.Role;
++        existingUser.InterestTags = user.InterestTags;
++
++        await _context.SaveChangesAsync();
++        return existingUser;
++    }
++
++    public async Task<bool> DeleteAsync(int id)
++    {
++        var user = await _context.Users.FindAsync(id);
++        if (user == null)
++            return false;
++
++        _context.Users.Remove(user);
++        await _context.SaveChangesAsync();
++        return true;
++    }
++}
+\ No newline at end of file
+diff --git a/Interfaces/ICategoryInterface.cs b/Interfaces/ICategoryInterface.cs
+index 23204fe..ebdaaeb 100644
+--- a/Interfaces/ICategoryInterface.cs
++++ b/Interfaces/ICategoryInterface.cs
+@@ -2,15 +2,16 @@
+ 
+ public interface ICategoryInterface
+ {
+-IEnumerable<Category> GetAll();
++IEnumerable<Category> GetAll(int userId);
+ 
+-    Category? GetById(int id);
++    Category? GetById(int id , int userId);
+ 
+     void Add(Category category);
+ 
+     void Update(Category category);
+ 
+-    void Delete(int id);
++    void Delete(int id );
+ 
+-    void Save();
++    public bool IsEligible(int categoryId, int userId);
++       void Save();
+ }
+diff --git a/Interfaces/IChatEntryInterface.cs b/Interfaces/IChatEntryInterface.cs
+index 4f84f27..4ef57bb 100644
+--- a/Interfaces/IChatEntryInterface.cs
++++ b/Interfaces/IChatEntryInterface.cs
+@@ -8,10 +8,14 @@ public interface IChatEntryInterface
+ 
+     List<ChatEntry> GetByCategory(int id , int? userid);
+ 
++    public bool IsEligible(int chatId, int userId);
++
+     void Add(ChatEntry chatEntry);
+ 
+     void Update(ChatEntry chatEntry);
+ 
++    int UpdateChatAccess(int id , bool isPublic);
++
+     void Delete(int id);
+ 
+     void Save();
+diff --git a/Interfaces/IUserAlgoInterface.cs b/Interfaces/IUserAlgoInterface.cs
+new file mode 100644
+index 0000000..d1cb246
+--- /dev/null
++++ b/Interfaces/IUserAlgoInterface.cs
+@@ -0,0 +1,6 @@
++﻿namespace FindYOU;
++
++public interface IUserAlgoInterface
++{
++Task<List<ChatEntry>> GetRecommendedChatsAsync(int userId);
++}
+diff --git a/Interfaces/IUserInterface.cs b/Interfaces/IUserInterface.cs
+new file mode 100644
+index 0000000..224b591
+--- /dev/null
++++ b/Interfaces/IUserInterface.cs
+@@ -0,0 +1,11 @@
++﻿using FindYOU;
++
++namespace FindYOU;
++
++public interface IUserInterface
++{
++    Task<IEnumerable<User>> GetAllAsync();
++    Task<User?> GetByIdAsync(int id);
++    Task<User?> UpdateAsync(int id, User user);
++    Task<bool> DeleteAsync(int id);
++}
+\ No newline at end of file
+diff --git a/Migrations/20260612181335_UpdateChatEntryAndCategory.Designer.cs b/Migrations/20260612181335_UpdateChatEntryAndCategory.Designer.cs
+new file mode 100644
+index 0000000..58e8d3f
+--- /dev/null
++++ b/Migrations/20260612181335_UpdateChatEntryAndCategory.Designer.cs
+@@ -0,0 +1,169 @@
++﻿// <auto-generated />
++using System;
++using FindYOU;
++using Microsoft.EntityFrameworkCore;
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using Microsoft.EntityFrameworkCore.Migrations;
++using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
++using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
++
++#nullable disable
++
++namespace FindYOU.Migrations
++{
++    [DbContext(typeof(ApplicationDbContext))]
++    [Migration("20260612181335_UpdateChatEntryAndCategory")]
++    partial class UpdateChatEntryAndCategory
++    {
++        /// <inheritdoc />
++        protected override void BuildTargetModel(ModelBuilder modelBuilder)
++        {
++#pragma warning disable 612, 618
++            modelBuilder
++                .HasAnnotation("ProductVersion", "9.0.1")
++                .HasAnnotation("Relational:MaxIdentifierLength", 63);
++
++            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
++
++            modelBuilder.Entity("FindYOU.Category", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<string>("Name")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)");
++
++                    b.Property<int>("UserId")
++                        .HasColumnType("integer");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("UserId");
++
++                    b.ToTable("Categories");
++                });
++
++            modelBuilder.Entity("FindYOU.ChatEntry", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<int>("CategoryId")
++                        .HasColumnType("integer");
++
++                    b.Property<string>("ChatLink")
++                        .IsRequired()
++                        .HasColumnType("text");
++
++                    b.Property<DateTime>("CreatedAt")
++                        .HasColumnType("timestamp with time zone");
++
++                    b.Property<bool>("IsPublic")
++                        .HasColumnType("boolean");
++
++                    b.Property<string>("Notes")
++                        .HasColumnType("text");
++
++                    b.Property<string>("Summary")
++                        .HasColumnType("text");
++
++                    b.Property<string>("Title")
++                        .IsRequired()
++                        .HasMaxLength(255)
++                        .HasColumnType("character varying(255)");
++
++                    b.Property<int>("UserId")
++                        .HasColumnType("integer");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("CategoryId");
++
++                    b.HasIndex("UserId");
++
++                    b.ToTable("ChatEntries");
++                });
++
++            modelBuilder.Entity("FindYOU.User", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<string>("Email")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)");
++
++                    b.Property<string>("Name")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)");
++
++                    b.Property<string>("Role")
++                        .IsRequired()
++                        .HasColumnType("text");
++
++                    b.Property<string>("password")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)");
++
++                    b.HasKey("Id");
++
++                    b.ToTable("Users");
++                });
++
++            modelBuilder.Entity("FindYOU.Category", b =>
++                {
++                    b.HasOne("FindYOU.User", "User")
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.Navigation("User");
++                });
++
++            modelBuilder.Entity("FindYOU.ChatEntry", b =>
++                {
++                    b.HasOne("FindYOU.Category", "Category")
++                        .WithMany("ChatEntries")
++                        .HasForeignKey("CategoryId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.HasOne("FindYOU.User", "User")
++                        .WithMany("ChatEntries")
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.Navigation("Category");
++
++                    b.Navigation("User");
++                });
++
++            modelBuilder.Entity("FindYOU.Category", b =>
++                {
++                    b.Navigation("ChatEntries");
++                });
++
++            modelBuilder.Entity("FindYOU.User", b =>
++                {
++                    b.Navigation("ChatEntries");
++                });
++#pragma warning restore 612, 618
++        }
++    }
++}
+diff --git a/Migrations/20260612181335_UpdateChatEntryAndCategory.cs b/Migrations/20260612181335_UpdateChatEntryAndCategory.cs
+new file mode 100644
+index 0000000..3a3ff0b
+--- /dev/null
++++ b/Migrations/20260612181335_UpdateChatEntryAndCategory.cs
+@@ -0,0 +1,61 @@
++﻿using Microsoft.EntityFrameworkCore.Migrations;
++
++#nullable disable
++
++namespace FindYOU.Migrations
++{
++    /// <inheritdoc />
++    public partial class UpdateChatEntryAndCategory : Migration
++    {
++        /// <inheritdoc />
++        protected override void Up(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.AddColumn<bool>(
++                name: "IsPublic",
++                table: "ChatEntries",
++                type: "boolean",
++                nullable: false,
++                defaultValue: false);
++
++            migrationBuilder.AddColumn<int>(
++                name: "UserId",
++                table: "Categories",
++                type: "integer",
++                nullable: false,
++                defaultValue: 0);
++
++            migrationBuilder.CreateIndex(
++                name: "IX_Categories_UserId",
++                table: "Categories",
++                column: "UserId");
++
++            migrationBuilder.AddForeignKey(
++                name: "FK_Categories_Users_UserId",
++                table: "Categories",
++                column: "UserId",
++                principalTable: "Users",
++                principalColumn: "Id",
++                onDelete: ReferentialAction.Cascade);
++        }
++
++        /// <inheritdoc />
++        protected override void Down(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.DropForeignKey(
++                name: "FK_Categories_Users_UserId",
++                table: "Categories");
++
++            migrationBuilder.DropIndex(
++                name: "IX_Categories_UserId",
++                table: "Categories");
++
++            migrationBuilder.DropColumn(
++                name: "IsPublic",
++                table: "ChatEntries");
++
++            migrationBuilder.DropColumn(
++                name: "UserId",
++                table: "Categories");
++        }
++    }
++}
+diff --git a/Migrations/20260614193143_AddSearchVector.Designer.cs b/Migrations/20260614193143_AddSearchVector.Designer.cs
+new file mode 100644
+index 0000000..eee84f8
+--- /dev/null
++++ b/Migrations/20260614193143_AddSearchVector.Designer.cs
+@@ -0,0 +1,177 @@
++﻿// <auto-generated />
++using System;
++using FindYOU;
++using Microsoft.EntityFrameworkCore;
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using Microsoft.EntityFrameworkCore.Migrations;
++using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
++using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
++
++#nullable disable
++
++namespace FindYOU.Migrations
++{
++    [DbContext(typeof(ApplicationDbContext))]
++    [Migration("20260614193143_AddSearchVector")]
++    partial class AddSearchVector
++    {
++        /// <inheritdoc />
++        protected override void BuildTargetModel(ModelBuilder modelBuilder)
++        {
++#pragma warning disable 612, 618
++            modelBuilder
++                .HasAnnotation("ProductVersion", "9.0.1")
++                .HasAnnotation("Relational:MaxIdentifierLength", 63);
++
++            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
++
++            modelBuilder.Entity("FindYOU.Category", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<string>("Name")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)");
++
++                    b.Property<int>("UserId")
++                        .HasColumnType("integer");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("UserId");
++
++                    b.ToTable("Categories");
++                });
++
++            modelBuilder.Entity("FindYOU.ChatEntry", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<int>("CategoryId")
++                        .HasColumnType("integer");
++
++                    b.Property<string>("ChatLink")
++                        .IsRequired()
++                        .HasColumnType("text");
++
++                    b.Property<string>("ChatTags")
++                        .IsRequired()
++                        .HasColumnType("text");
++
++                    b.Property<DateTime>("CreatedAt")
++                        .HasColumnType("timestamp with time zone");
++
++                    b.Property<bool>("IsPublic")
++                        .HasColumnType("boolean");
++
++                    b.Property<string>("Notes")
++                        .HasColumnType("text");
++
++                    b.Property<string>("Summary")
++                        .HasColumnType("text");
++
++                    b.Property<string>("Title")
++                        .IsRequired()
++                        .HasMaxLength(255)
++                        .HasColumnType("character varying(255)");
++
++                    b.Property<int>("UserId")
++                        .HasColumnType("integer");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("CategoryId");
++
++                    b.HasIndex("UserId");
++
++                    b.ToTable("ChatEntries");
++                });
++
++            modelBuilder.Entity("FindYOU.User", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<string>("Email")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)");
++
++                    b.Property<string>("InterestTags")
++                        .IsRequired()
++                        .HasColumnType("text");
++
++                    b.Property<string>("Name")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)");
++
++                    b.Property<string>("Role")
++                        .IsRequired()
++                        .HasColumnType("text");
++
++                    b.Property<string>("password")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)");
++
++                    b.HasKey("Id");
++
++                    b.ToTable("Users");
++                });
++
++            modelBuilder.Entity("FindYOU.Category", b =>
++                {
++                    b.HasOne("FindYOU.User", "User")
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.Navigation("User");
++                });
++
++            modelBuilder.Entity("FindYOU.ChatEntry", b =>
++                {
++                    b.HasOne("FindYOU.Category", "Category")
++                        .WithMany("ChatEntries")
++                        .HasForeignKey("CategoryId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.HasOne("FindYOU.User", "User")
++                        .WithMany("ChatEntries")
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.Navigation("Category");
++
++                    b.Navigation("User");
++                });
++
++            modelBuilder.Entity("FindYOU.Category", b =>
++                {
++                    b.Navigation("ChatEntries");
++                });
++
++            modelBuilder.Entity("FindYOU.User", b =>
++                {
++                    b.Navigation("ChatEntries");
++                });
++#pragma warning restore 612, 618
++        }
++    }
++}
+diff --git a/Migrations/20260614193143_AddSearchVector.cs b/Migrations/20260614193143_AddSearchVector.cs
+new file mode 100644
+index 0000000..73662a7
+--- /dev/null
++++ b/Migrations/20260614193143_AddSearchVector.cs
+@@ -0,0 +1,40 @@
++﻿using Microsoft.EntityFrameworkCore.Migrations;
++
++#nullable disable
++
++namespace FindYOU.Migrations
++{
++    /// <inheritdoc />
++    public partial class AddSearchVector : Migration
++    {
++        /// <inheritdoc />
++        protected override void Up(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.AddColumn<string>(
++                name: "InterestTags",
++                table: "Users",
++                type: "text",
++                nullable: false,
++                defaultValue: "");
++
++            migrationBuilder.AddColumn<string>(
++                name: "ChatTags",
++                table: "ChatEntries",
++                type: "text",
++                nullable: false,
++                defaultValue: "");
++        }
++
++        /// <inheritdoc />
++        protected override void Down(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.DropColumn(
++                name: "InterestTags",
++                table: "Users");
++
++            migrationBuilder.DropColumn(
++                name: "ChatTags",
++                table: "ChatEntries");
++        }
++    }
++}
+diff --git a/Migrations/20260614193440_AddInterestAndChatTags.Designer.cs b/Migrations/20260614193440_AddInterestAndChatTags.Designer.cs
+new file mode 100644
+index 0000000..388e579
+--- /dev/null
++++ b/Migrations/20260614193440_AddInterestAndChatTags.Designer.cs
+@@ -0,0 +1,175 @@
++﻿// <auto-generated />
++using System;
++using FindYOU;
++using Microsoft.EntityFrameworkCore;
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using Microsoft.EntityFrameworkCore.Migrations;
++using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
++using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
++
++#nullable disable
++
++namespace FindYOU.Migrations
++{
++    [DbContext(typeof(ApplicationDbContext))]
++    [Migration("20260614193440_AddInterestAndChatTags")]
++    partial class AddInterestAndChatTags
++    {
++        /// <inheritdoc />
++        protected override void BuildTargetModel(ModelBuilder modelBuilder)
++        {
++#pragma warning disable 612, 618
++            modelBuilder
++                .HasAnnotation("ProductVersion", "9.0.1")
++                .HasAnnotation("Relational:MaxIdentifierLength", 63);
++
++            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
++
++            modelBuilder.Entity("FindYOU.Category", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<string>("Name")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)");
++
++                    b.Property<int>("UserId")
++                        .HasColumnType("integer");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("UserId");
++
++                    b.ToTable("Categories");
++                });
++
++            modelBuilder.Entity("FindYOU.ChatEntry", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<int>("CategoryId")
++                        .HasColumnType("integer");
++
++                    b.Property<string>("ChatLink")
++                        .IsRequired()
++                        .HasColumnType("text");
++
++                    b.Property<string>("ChatTags")
++                        .HasColumnType("text");
++
++                    b.Property<DateTime>("CreatedAt")
++                        .HasColumnType("timestamp with time zone");
++
++                    b.Property<bool>("IsPublic")
++                        .HasColumnType("boolean");
++
++                    b.Property<string>("Notes")
++                        .HasColumnType("text");
++
++                    b.Property<string>("Summary")
++                        .HasColumnType("text");
++
++                    b.Property<string>("Title")
++                        .IsRequired()
++                        .HasMaxLength(255)
++                        .HasColumnType("character varying(255)");
++
++                    b.Property<int>("UserId")
++                        .HasColumnType("integer");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("CategoryId");
++
++                    b.HasIndex("UserId");
++
++                    b.ToTable("ChatEntries");
++                });
++
++            modelBuilder.Entity("FindYOU.User", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<string>("Email")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)");
++
++                    b.Property<string>("InterestTags")
++                        .HasColumnType("text");
++
++                    b.Property<string>("Name")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)");
++
++                    b.Property<string>("Role")
++                        .IsRequired()
++                        .HasColumnType("text");
++
++                    b.Property<string>("password")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)");
++
++                    b.HasKey("Id");
++
++                    b.ToTable("Users");
++                });
++
++            modelBuilder.Entity("FindYOU.Category", b =>
++                {
++                    b.HasOne("FindYOU.User", "User")
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.Navigation("User");
++                });
++
++            modelBuilder.Entity("FindYOU.ChatEntry", b =>
++                {
++                    b.HasOne("FindYOU.Category", "Category")
++                        .WithMany("ChatEntries")
++                        .HasForeignKey("CategoryId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.HasOne("FindYOU.User", "User")
++                        .WithMany("ChatEntries")
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.Navigation("Category");
++
++                    b.Navigation("User");
++                });
++
++            modelBuilder.Entity("FindYOU.Category", b =>
++                {
++                    b.Navigation("ChatEntries");
++                });
++
++            modelBuilder.Entity("FindYOU.User", b =>
++                {
++                    b.Navigation("ChatEntries");
++                });
++#pragma warning restore 612, 618
++        }
++    }
++}
+diff --git a/Migrations/20260614193440_AddInterestAndChatTags.cs b/Migrations/20260614193440_AddInterestAndChatTags.cs
+new file mode 100644
+index 0000000..64a05fb
+--- /dev/null
++++ b/Migrations/20260614193440_AddInterestAndChatTags.cs
+@@ -0,0 +1,54 @@
++﻿using Microsoft.EntityFrameworkCore.Migrations;
++
++#nullable disable
++
++namespace FindYOU.Migrations
++{
++    /// <inheritdoc />
++    public partial class AddInterestAndChatTags : Migration
++    {
++        /// <inheritdoc />
++        protected override void Up(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.AlterColumn<string>(
++                name: "InterestTags",
++                table: "Users",
++                type: "text",
++                nullable: true,
++                oldClrType: typeof(string),
++                oldType: "text");
++
++            migrationBuilder.AlterColumn<string>(
++                name: "ChatTags",
++                table: "ChatEntries",
++                type: "text",
++                nullable: true,
++                oldClrType: typeof(string),
++                oldType: "text");
++        }
++
++        /// <inheritdoc />
++        protected override void Down(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.AlterColumn<string>(
++                name: "InterestTags",
++                table: "Users",
++                type: "text",
++                nullable: false,
++                defaultValue: "",
++                oldClrType: typeof(string),
++                oldType: "text",
++                oldNullable: true);
++
++            migrationBuilder.AlterColumn<string>(
++                name: "ChatTags",
++                table: "ChatEntries",
++                type: "text",
++                nullable: false,
++                defaultValue: "",
++                oldClrType: typeof(string),
++                oldType: "text",
++                oldNullable: true);
++        }
++    }
++}
+diff --git a/Migrations/ApplicationDbContextModelSnapshot.cs b/Migrations/ApplicationDbContextModelSnapshot.cs
+index bf9e217..a1ca2c5 100644
+--- a/Migrations/ApplicationDbContextModelSnapshot.cs
++++ b/Migrations/ApplicationDbContextModelSnapshot.cs
+@@ -35,8 +35,13 @@ namespace FindYOU.Migrations
+                         .HasMaxLength(100)
+                         .HasColumnType("character varying(100)");
+ 
++                    b.Property<int>("UserId")
++                        .HasColumnType("integer");
++
+                     b.HasKey("Id");
+ 
++                    b.HasIndex("UserId");
++
+                     b.ToTable("Categories");
+                 });
+ 
+@@ -55,9 +60,15 @@ namespace FindYOU.Migrations
+                         .IsRequired()
+                         .HasColumnType("text");
+ 
++                    b.Property<string>("ChatTags")
++                        .HasColumnType("text");
++
+                     b.Property<DateTime>("CreatedAt")
+                         .HasColumnType("timestamp with time zone");
+ 
++                    b.Property<bool>("IsPublic")
++                        .HasColumnType("boolean");
++
+                     b.Property<string>("Notes")
+                         .HasColumnType("text");
+ 
+@@ -94,6 +105,9 @@ namespace FindYOU.Migrations
+                         .HasMaxLength(100)
+                         .HasColumnType("character varying(100)");
+ 
++                    b.Property<string>("InterestTags")
++                        .HasColumnType("text");
++
+                     b.Property<string>("Name")
+                         .IsRequired()
+                         .HasMaxLength(100)
+@@ -113,6 +127,17 @@ namespace FindYOU.Migrations
+                     b.ToTable("Users");
+                 });
+ 
++            modelBuilder.Entity("FindYOU.Category", b =>
++                {
++                    b.HasOne("FindYOU.User", "User")
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.Navigation("User");
++                });
++
+             modelBuilder.Entity("FindYOU.ChatEntry", b =>
+                 {
+                     b.HasOne("FindYOU.Category", "Category")
+diff --git a/Models/Categories.cs b/Models/Categories.cs
+index 5bac4c0..4a17f68 100644
+--- a/Models/Categories.cs
++++ b/Models/Categories.cs
+@@ -1,17 +1,23 @@
+ ﻿using System.ComponentModel.DataAnnotations;
++using System.ComponentModel.DataAnnotations.Schema;
+ using System.Text.Json.Serialization;
+ 
+ namespace FindYOU;
+ 
+-  public class Category
+-    {
+-        public int Id { get; set; }
++public class Category
++{
++    public int Id { get; set; }
+ 
+-        [Required]
+-        [StringLength(100)]
+-        public string Name { get; set; }
++    [Required]
++    [StringLength(100)]
++    public string Name { get; set; }
+ 
++    // Category Owner
++    public int UserId { get; set; }
+ 
+-[JsonIgnore]
+-        public ICollection<ChatEntry>? ChatEntries { get; set; }
+-    }
++    [ForeignKey(nameof(UserId))]
++    public User? User { get; set; }
++
++    [JsonIgnore]
++    public ICollection<ChatEntry>? ChatEntries { get; set; }
++}
+\ No newline at end of file
+diff --git a/Models/ChatEntries.cs b/Models/ChatEntries.cs
+index cc37a10..c817aa4 100644
+--- a/Models/ChatEntries.cs
++++ b/Models/ChatEntries.cs
+@@ -4,31 +4,36 @@ using System.ComponentModel.DataAnnotations.Schema;
+ namespace FindYOU;
+ 
+ public class ChatEntry
+-    {
+-        public int Id { get; set; }
++{
++    public int Id { get; set; }
+ 
+-        [Required]
+-        [StringLength(255)]
+-        public string Title { get; set; }
++    [Required]
++    [StringLength(255)]
++    public string Title { get; set; }
+ 
+-        [Required]
+-        [Url]
+-        public string ChatLink { get; set; }
++    [Required]
++    [Url]
++    public string ChatLink { get; set; }
+ 
+-        public string? Summary { get; set; }
++    // AI Generated Summary
++    public string? Summary { get; set; }
+ 
+-        public string? Notes { get; set; }
++    public string? Notes { get; set; }
+ 
+-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
++    public bool IsPublic { get; set; } = false;
+ 
+-        [Display(Name = "Category")]
+-        public int CategoryId { get; set; }
++    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+ 
+-        [ForeignKey("CategoryId")]
+-        public Category? Category { get; set; }
++    [Display(Name = "Category")]
++    public int CategoryId { get; set; }
+ 
+-       public int UserId { get; set; }
++    [ForeignKey(nameof(CategoryId))]
++    public Category? Category { get; set; }
+ 
+-[ForeignKey(nameof(UserId))]
+-public User? User { get; set; }
+-    }
++     public string? ChatTags { get; set; }
++
++    public int UserId { get; set; }
++
++    [ForeignKey(nameof(UserId))]
++    public User? User { get; set; }
++}
+\ No newline at end of file
+diff --git a/Models/User.cs b/Models/User.cs
+index 942c39d..8b12375 100644
+--- a/Models/User.cs
++++ b/Models/User.cs
+@@ -1,4 +1,5 @@
+ ﻿using System.ComponentModel.DataAnnotations;
++using System.Text.Json.Serialization;
+ 
+ namespace FindYOU;
+ 
+@@ -23,6 +24,9 @@ public class User
+ 
+     public string Role {get ; set ;} = "User";
+ 
++     public string? InterestTags { get; set; }
++
++[JsonIgnore]
+     public ICollection<ChatEntry> ChatEntries { get; set; }
+     = new List<ChatEntry>();
+ }
+\ No newline at end of file
+diff --git a/Program.cs b/Program.cs
+index ebe550a..3d88a42 100644
+--- a/Program.cs
++++ b/Program.cs
+@@ -1,17 +1,25 @@
+ using Microsoft.EntityFrameworkCore;
+ using FindYOU;
++using FindYOU.Repositories;
+ // using FindYOU;
+ 
+ var builder = WebApplication.CreateBuilder(args);
+ 
+ // Add services to the container.
+ builder.Services.AddControllersWithViews();
++builder.Services.AddHttpClient();
+ builder.Services.AddScoped<ICategoryInterface, CategoryRepository>();
+ 
+ builder.Services.AddScoped<IChatEntryInterface, ChatEntryRepository>();
+ 
++builder.Services.AddScoped<IUserInterface , UserRepository>();
++
+ builder.Services.AddScoped<IAuthInterface , AuthRepository>();
+ 
++builder.Services.AddScoped<IUserAlgoInterface , UserAlgoRepository>();
++
++builder.Services.AddScoped<AITagsGeneration>();
++
+ builder.Services.AddDbContext<ApplicationDbContext>(options =>
+     options.UseNpgsql(
+         builder.Configuration.GetConnectionString("DefaultConnection")));
+diff --git a/Services/AIService/AITagsGeneration.cs b/Services/AIService/AITagsGeneration.cs
+new file mode 100644
+index 0000000..5a2375c
+--- /dev/null
++++ b/Services/AIService/AITagsGeneration.cs
+@@ -0,0 +1,92 @@
++﻿using System.Net.Http.Headers;
++using System.Text;
++using System.Text.Json;
++
++namespace FindYOU;
++
++public class AITagsGeneration
++{
++      private readonly HttpClient _httpClient;
++    private readonly IConfiguration _configuration;
++
++    public AITagsGeneration(
++        HttpClient httpClient,
++        IConfiguration configuration)
++    {
++        _httpClient = httpClient;
++        _configuration = configuration;
++    }
++
++    public async Task<string> GenerateTagsAsync(
++        string title,
++        string category,
++        string? summary,
++        string? notes)
++    {
++       var prompt = $@"
++Generate 5-8 relevant tags.
++
++Rules:
++- lowercase only
++- space separated
++- no commas
++- no numbering
++- no explanation
++
++Title:
++{title}
++
++Category:
++{category}
++
++Summary:
++{summary}
++
++Notes:
++{notes}
++
++Example Output:
++dotnet aspnet mvc efcore postgresql
++";
++
++var requestBody = new
++{
++    model = "llama-3.1-8b-instant",
++    messages = new[]
++    {
++        new
++        {
++            role = "user",
++            content = prompt
++        }
++    },
++    temperature = 0.2
++};
++
++var json = JsonSerializer.Serialize(requestBody);
++ var apiKey = _configuration["Groq:ApiKey"];
++
++        using var request = new HttpRequestMessage(
++            HttpMethod.Post,
++            "https://api.groq.com/openai/v1/chat/completions");
++
++        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
++        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
++
++        var response = await _httpClient.SendAsync(request);
++        response.EnsureSuccessStatusCode();
++
++        var responseBody = await response.Content.ReadAsStringAsync();
++
++        using var doc = JsonDocument.Parse(responseBody);
++
++        var content = doc.RootElement
++            .GetProperty("choices")[0]
++            .GetProperty("message")
++            .GetProperty("content")
++            .GetString();
++
++        return content?.Trim() ?? "";
++
++    }
++}
+diff --git a/Views/Category/Create.cshtml b/Views/Category/Create.cshtml
+index dad146a..0d5c863 100644
+--- a/Views/Category/Create.cshtml
++++ b/Views/Category/Create.cshtml
+@@ -49,7 +49,10 @@
+                 <h1 class="category-create-title">Create Category</h1>
+                 <p class="category-create-subtitle">Add a new category record for the FindYOU office system.</p>
+             </div>
+-            <a asp-controller="Home" asp-action="Logout" class="btn btn-outline-danger">Logout</a>
++            <div class="d-flex flex-wrap gap-2">
++                <a asp-controller="Category" asp-action="Index" class="btn btn-outline-secondary">Back</a>
++                <a asp-controller="Home" asp-action="Logout" class="btn btn-outline-danger">Logout</a>
++            </div>
+         </div>
+ 
+         <form asp-action="Create" asp-controller="Category" method="post" id="createCategoryForm">
+diff --git a/Views/Category/Index.cshtml b/Views/Category/Index.cshtml
+index 79ec11a..9eb55b4 100644
+--- a/Views/Category/Index.cshtml
++++ b/Views/Category/Index.cshtml
+@@ -92,6 +92,7 @@
+                 <p class="category-subtitle">Manage category records for the FindYOU office system.</p>
+             </div>
+             <div class="d-flex flex-wrap gap-2">
++                <a asp-controller="ChatEntry" asp-action="Index" class="btn btn-outline-warning text-dark">Chat Entries</a>
+                 <a asp-controller="Category" asp-action="Create" class="btn btn-warning text-dark">Create Category</a>
+                 <a asp-controller="Home" asp-action="Logout" class="btn btn-outline-danger">Logout</a>
+             </div>
+diff --git a/Views/ChatEntry/Index.cshtml b/Views/ChatEntry/Index.cshtml
+index 16dd031..f4ff190 100644
+--- a/Views/ChatEntry/Index.cshtml
++++ b/Views/ChatEntry/Index.cshtml
+@@ -11,6 +11,7 @@
+         chat.ChatLink,
+         chat.Summary,
+         chat.Notes,
++        chat.IsPublic,
+         chat.CreatedAt,
+         chat.CategoryId,
+         CategoryName = chat.Category != null ? chat.Category.Name : string.Empty
+@@ -163,6 +164,19 @@
+         margin-bottom: 0;
+     }
+ 
++    .chat-access-toggle {
++        border: 1px solid #eadf9b;
++        background: #fffdf0;
++        padding: 12px 14px;
++        margin-bottom: 16px;
++    }
++
++    .chat-access-status {
++        color: #666;
++        font-size: 13px;
++        margin-top: 4px;
++    }
++
+     .detail-list {
+         padding-left: 20px;
+     }
+@@ -205,6 +219,7 @@
+                 <p class="chat-entry-subtitle">Manage chat entry records for the FindYOU office system.</p>
+             </div>
+             <div class="d-flex flex-wrap gap-2">
++                <a asp-controller="Category" asp-action="Index" class="btn btn-outline-warning text-dark">Categories</a>
+                 <a asp-controller="ChatEntry" asp-action="Create" class="btn btn-warning text-dark">Create Chat Entry</a>
+                 <a asp-controller="Home" asp-action="Logout" class="btn btn-outline-danger">Logout</a>
+             </div>
+@@ -327,6 +342,18 @@
+                 return $.trim((value || '').toString());
+             }
+ 
++            function boolValue(value) {
++                return value === true || String(value).toLowerCase() === 'true';
++            }
++
++            function getIsPublic(chat) {
++                if (!chat) {
++                    return false;
++                }
++
++                return boolValue(chat.IsPublic ?? chat.isPublic ?? chat.ispublic);
++            }
++
+             function removeTags(value) {
+                 return textValue(value).replace(/#[^\s#]+/g, '').replace(/\s+/g, ' ').trim();
+             }
+@@ -509,7 +536,15 @@
+             }
+ 
+             function fillDetail(chat) {
++                var isPublic = getIsPublic(chat);
+                 var detailHtml =
++                    '<div class="chat-access-toggle">' +
++                        '<div class="form-check form-switch mb-0">' +
++                            '<input class="form-check-input js-chat-access-toggle" type="checkbox" role="switch" id="chatAccessToggle" data-id="' + chat.Id + '"' + (isPublic ? ' checked' : '') + '>' +
++                            '<label class="form-check-label fw-semibold" for="chatAccessToggle">want to make it public?</label>' +
++                        '</div>' +
++                        '<div class="chat-access-status" id="chatAccessStatus">' + (isPublic ? 'this chat entry is public.' : 'this chat entry is private.') + '</div>' +
++                    '</div>' +
+                     '<div class="detail-meta-grid">' +
+                         '<div>' +
+                             '<div class="window-label">title</div>' +
+@@ -535,6 +570,63 @@
+                 $('#detailBody').html(detailHtml);
+             }
+ 
++            function responseMessage(xhr, fallback) {
++                if (xhr && xhr.responseJSON && xhr.responseJSON.message) {
++                    return xhr.responseJSON.message;
++                }
++
++                if (xhr && xhr.responseText) {
++                    try {
++                        var response = JSON.parse(xhr.responseText);
++                        if (response.message) {
++                            return response.message;
++                        }
++                    } catch (e) {
++                        return xhr.responseText;
++                    }
++                }
++
++                return fallback;
++            }
++
++            $('#detailBody').on('change', '.js-chat-access-toggle', function () {
++                var toggle = $(this);
++                var chatId = Number(toggle.data('id'));
++                var isPublic = toggle.is(':checked');
++                var chat = findChatEntry(chatId);
++
++                toggle.prop('disabled', true);
++                $('#chatAccessStatus').text('updating access...');
++
++                $.ajax({
++                    url: '@Url.Action("UpdateChatAccess", "ChatEntry")',
++                    type: 'POST',
++                    data: {
++                        chatid: chatId,
++                        ispublic: isPublic,
++                        __RequestVerificationToken: token
++                    },
++                    success: function () {
++                        if (chat) {
++                            chat.IsPublic = isPublic;
++                            chat.isPublic = isPublic;
++                            chat.ispublic = isPublic;
++                        }
++
++                        $('#chatAccessStatus').text(isPublic ? 'this chat entry is public.' : 'this chat entry is private.');
++                        Swal.fire('updated', responseMessage(null, 'chat access has been updated.'), 'success');
++                    },
++                    error: function (xhr) {
++                        toggle.prop('checked', !isPublic);
++                        $('#chatAccessStatus').text(!isPublic ? 'this chat entry is public.' : 'this chat entry is private.');
++                        Swal.fire('error', responseMessage(xhr, 'chat access could not be updated.'), 'error');
++                    },
++                    complete: function () {
++                        toggle.prop('disabled', false);
++                    }
++                });
++            });
++
+             $('#chatEntrySearch').on('input', applySearch);
+ 
+             $('#categoryFilter').on('change', function () {
+diff --git a/Views/Shared/_Layout.cshtml b/Views/Shared/_Layout.cshtml
+index 2645644..01b0658 100644
+--- a/Views/Shared/_Layout.cshtml
++++ b/Views/Shared/_Layout.cshtml
+@@ -10,39 +10,224 @@
+     <link rel="stylesheet" href="~/FindYOU.styles.css" asp-append-version="true" />
+ </head>
+ <body>
++    <style>
++        .app-shell {
++            min-height: 100vh;
++            display: flex;
++            flex-direction: column;
++            background: #fffdf0;
++        }
++
++        .app-navbar {
++            position: fixed;
++            top: 0;
++            left: 0;
++            right: 0;
++            z-index: 1020;
++            background: #ffffff;
++            border-bottom: 1px solid #eadf9b;
++        }
++
++        .app-brand {
++            color: #8a6d00 !important;
++            font-weight: 800;
++            letter-spacing: 0;
++        }
++
++        .menu-toggle {
++            border: 1px solid #eadf9b;
++            background: #fff3b0;
++            color: #222;
++            width: 42px;
++            height: 38px;
++            display: inline-flex;
++            align-items: center;
++            justify-content: center;
++            font-size: 22px;
++            line-height: 1;
++        }
++
++        .sidebar-backdrop {
++            position: fixed;
++            inset: 0;
++            z-index: 1030;
++            background: rgba(0, 0, 0, 0.35);
++            display: none;
++        }
++
++        .sidebar-backdrop.is-open {
++            display: block;
++        }
++
++        .app-sidebar {
++            position: fixed;
++            top: 0;
++            left: 0;
++            z-index: 1040;
++            width: 280px;
++            max-width: 86vw;
++            height: 100vh;
++            background: #ffffff;
++            border-right: 1px solid #eadf9b;
++            transform: translateX(-100%);
++            transition: transform 180ms ease;
++            display: flex;
++            flex-direction: column;
++        }
++
++        .app-sidebar.is-open {
++            transform: translateX(0);
++        }
++
++        .sidebar-head {
++            background: #fff3b0;
++            border-bottom: 1px solid #eadf9b;
++            padding: 16px;
++            display: flex;
++            align-items: center;
++            justify-content: space-between;
++            gap: 12px;
++        }
++
++        .sidebar-title {
++            color: #8a6d00;
++            font-size: 20px;
++            font-weight: 800;
++            margin: 0;
++        }
++
++        .sidebar-close {
++            border: 1px solid #eadf9b;
++            background: #ffffff;
++            color: #222;
++            width: 36px;
++            height: 34px;
++            font-size: 24px;
++            line-height: 1;
++        }
++
++        .sidebar-menu {
++            padding: 14px;
++            display: flex;
++            flex-direction: column;
++            gap: 8px;
++        }
++
++        .sidebar-menu .nav-link {
++            border: 1px solid #f1e6a8;
++            background: #fffdf0;
++            color: #222 !important;
++            font-weight: 600;
++            padding: 11px 12px;
++        }
++
++        .sidebar-menu .nav-link:hover,
++        .sidebar-menu .nav-link:focus {
++            background: #fff3b0;
++            color: #6f5700 !important;
++        }
++
++        .app-main {
++            flex: 1;
++            padding-top: 76px;
++            padding-bottom: 28px;
++        }
++
++        .app-footer {
++            background: #ffffff;
++            border-top: 1px solid #eadf9b;
++            padding: 14px 0;
++            margin-top: auto;
++        }
++
++        .app-footer-content {
++            display: flex;
++            align-items: center;
++            justify-content: space-between;
++            gap: 12px;
++            flex-wrap: wrap;
++        }
++
++        .app-footer-text {
++            color: #666;
++            font-size: 14px;
++            font-weight: 600;
++        }
++
++        .btn,
++        .navbar-toggler {
++            border-radius: 0 !important;
++        }
++    </style>
++
++    <div class="app-shell">
+     <header>
+-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
++        <nav class="navbar navbar-expand-sm navbar-toggleable-sm app-navbar">
+             <div class="container-fluid">
+-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">FindYOU</a>
+-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+-                        aria-expanded="false" aria-label="Toggle navigation">
+-                    <span class="navbar-toggler-icon"></span>
++                <button class="menu-toggle" type="button" id="sidebarOpen" aria-label="Open navigation">
++                    &#9776;
+                 </button>
+-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+-                    <ul class="navbar-nav flex-grow-1">
+-                        <li class="nav-item">
+-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
+-                        </li>
+-                        
+-                    </ul>
+-                </div>
++                <a class="navbar-brand app-brand ms-2" asp-area="" asp-controller="Home" asp-action="Index">FindYOU</a>
+             </div>
+         </nav>
+     </header>
+-    <div class="container">
++
++    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
++    <aside class="app-sidebar" id="appSidebar" aria-label="Main navigation">
++        <div class="sidebar-head">
++            <p class="sidebar-title">FindYOU</p>
++            <button class="sidebar-close" type="button" id="sidebarClose" aria-label="Close navigation">&times;</button>
++        </div>
++        <nav class="sidebar-menu">
++            <a class="nav-link" asp-area="" asp-controller="ChatEntry" asp-action="Index">Your Chats</a>
++            <a class="nav-link" asp-area="" asp-controller="Category" asp-action="Index">Category</a>
++            <a class="nav-link" asp-area="" asp-controller="UserAlgo" asp-action="Index">Home</a>
++            <a class="nav-link" asp-area="" asp-controller="User" asp-action="Index">Profile</a>
++        </nav>
++        <footer class="app-footer">
++            <div class="px-3">
++                <a asp-area="" asp-controller="Home" asp-action="Logout" class="btn btn-outline-danger w-100">Logout</a>
++            </div>
++        </footer>
++    </aside>
++
++    <div class="container app-main">
+         <main role="main" class="pb-3">
+             @RenderBody()
+         </main>
+     </div>
+ 
+-    <footer class="border-top footer text-muted">
+-        <!-- <div class="container">
+-            &copy; 2026 - FindYOU - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+-        </div> -->
+-    </footer>
++    </div>
+     <script src="~/lib/jquery/dist/jquery.min.js"></script>
+     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+     <script src="~/js/site.js" asp-append-version="true"></script>
++    <script>
++        (function () {
++            var sidebar = document.getElementById('appSidebar');
++            var backdrop = document.getElementById('sidebarBackdrop');
++            var openButton = document.getElementById('sidebarOpen');
++            var closeButton = document.getElementById('sidebarClose');
++
++            function openSidebar() {
++                sidebar.classList.add('is-open');
++                backdrop.classList.add('is-open');
++            }
++
++            function closeSidebar() {
++                sidebar.classList.remove('is-open');
++                backdrop.classList.remove('is-open');
++            }
++
++            openButton.addEventListener('click', openSidebar);
++            closeButton.addEventListener('click', closeSidebar);
++            backdrop.addEventListener('click', closeSidebar);
++            document.addEventListener('keydown', function (event) {
++                if (event.key === 'Escape') {
++                    closeSidebar();
++                }
++            });
++        })();
++    </script>
+     @await RenderSectionAsync("Scripts", required: false)
+ </body>
+ </html>
+diff --git a/Views/User/Index.cshtml b/Views/User/Index.cshtml
+new file mode 100644
+index 0000000..0e77255
+--- /dev/null
++++ b/Views/User/Index.cshtml
+@@ -0,0 +1,351 @@
++@{
++    ViewData["Title"] = "Profile";
++}
++
++<style>
++    .user-page {
++        background: #fff9db;
++        border: 1px solid #f1e6a8;
++        padding: 24px;
++        color: #222;
++    }
++
++    .user-header,
++    .user-profile-wrap {
++        background: #ffffff;
++        border: 1px solid #eadf9b;
++    }
++
++    .user-header {
++        padding: 18px 20px;
++        margin-bottom: 18px;
++    }
++
++    .user-profile-wrap {
++        padding: 14px;
++    }
++
++    .user-title {
++        font-size: 28px;
++        font-weight: 600;
++        margin: 0;
++    }
++
++    .user-subtitle {
++        color: #666;
++        margin: 4px 0 0;
++    }
++
++    .findyou-brand {
++        color: #8a6d00;
++        font-weight: 700;
++    }
++
++    .profile-grid {
++        display: grid;
++        grid-template-columns: repeat(2, minmax(0, 1fr));
++        gap: 12px;
++    }
++
++    .window-label {
++        color: #666;
++        font-size: 13px;
++        margin-bottom: 4px;
++    }
++
++    .window-value {
++        background: #fffdf0;
++        border: 1px solid #eadf9b;
++        padding: 10px 12px;
++        margin-bottom: 12px;
++        min-height: 44px;
++        word-break: break-word;
++    }
++
++    .profile-actions {
++        border-top: 1px solid #f1e6a8;
++        margin-top: 2px;
++        padding-top: 14px;
++    }
++
++    .btn,
++    .form-control,
++    .modal-content {
++        border-radius: 0 !important;
++    }
++
++    @media (max-width: 767.98px) {
++        .profile-grid {
++            grid-template-columns: 1fr;
++        }
++    }
++</style>
++
++<div class="user-page">
++    <div class="user-header">
++        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
++            <div>
++                <p class="mb-1 findyou-brand">FindYOU</p>
++                <h1 class="user-title">Profile</h1>
++                <p class="user-subtitle">View and manage your FindYOU account details.</p>
++            </div>
++            <div class="d-flex flex-wrap gap-2">
++                <a asp-controller="UserAlgo" asp-action="Index" class="btn btn-outline-warning text-dark">Home</a>
++                <a asp-controller="ChatEntry" asp-action="Index" class="btn btn-outline-warning text-dark">Chat Entries</a>
++                <a asp-controller="Home" asp-action="Logout" class="btn btn-outline-danger">Logout</a>
++            </div>
++        </div>
++    </div>
++
++    <div class="user-profile-wrap">
++        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
++            <div class="fw-semibold">User Details</div>
++            <div id="profileStatus" class="text-muted small">loading profile...</div>
++        </div>
++
++        <div id="profileBody">
++            <div class="text-center text-muted py-4">loading user details...</div>
++        </div>
++
++        <div class="profile-actions d-flex flex-wrap gap-2">
++            <button type="button" class="btn btn-warning text-dark" id="updateUserBtn" disabled>Update</button>
++            <button type="button" class="btn btn-outline-danger" id="deleteUserBtn" disabled>Delete</button>
++        </div>
++    </div>
++</div>
++
++<form id="antiForgeryForm" method="post">
++    @Html.AntiForgeryToken()
++</form>
++
++<div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalTitle" aria-hidden="true">
++    <div class="modal-dialog modal-dialog-centered">
++        <div class="modal-content">
++            <form id="editUserForm">
++                <div class="modal-header" style="background:#fff3b0;">
++                    <h5 class="modal-title" id="editUserModalTitle">Update Profile</h5>
++                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
++                </div>
++                <div class="modal-body">
++                    <input type="hidden" id="editUserId" name="Id" />
++                    <input type="hidden" id="editUserRole" name="Role" />
++
++                    <div class="mb-3">
++                        <label for="editName" class="form-label">Name</label>
++                        <input type="text" id="editName" name="Name" class="form-control" maxlength="100" required />
++                    </div>
++
++                    <div class="mb-3">
++                        <label for="editEmail" class="form-label">Email</label>
++                        <input type="email" id="editEmail" name="Email" class="form-control" maxlength="100" required />
++                    </div>
++
++                    <div class="mb-3">
++                        <label for="editPassword" class="form-label">Password</label>
++                        <input type="password" id="editPassword" name="password" class="form-control" maxlength="100" required />
++                    </div>
++
++                    <div class="mb-3">
++                        <label for="editInterestTags" class="form-label">Interest Tags</label>
++                        <textarea id="editInterestTags" name="InterestTags" class="form-control" rows="3" placeholder="#aspnet #mvc #postgres"></textarea>
++                    </div>
++                </div>
++                <div class="modal-footer">
++                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
++                    <button type="submit" class="btn btn-warning text-dark">Update</button>
++                </div>
++            </form>
++        </div>
++    </div>
++</div>
++
++@section Scripts {
++    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
++
++    <script>
++        $(function () {
++            var currentUser = null;
++            var token = $('#antiForgeryForm input[name="__RequestVerificationToken"]').val();
++            var editUserModal = new bootstrap.Modal(document.getElementById('editUserModal'));
++
++            function htmlEncode(value) {
++                return $('<div>').text(value || '').html();
++            }
++
++            function prop(obj, pascalName, camelName) {
++                if (!obj) {
++                    return '';
++                }
++
++                return obj[pascalName] ?? obj[camelName] ?? '';
++            }
++
++            function responseMessage(xhr, fallback) {
++                if (xhr && xhr.responseJSON && xhr.responseJSON.message) {
++                    return xhr.responseJSON.message;
++                }
++
++                if (xhr && xhr.responseText) {
++                    try {
++                        var response = JSON.parse(xhr.responseText);
++                        if (response.message) {
++                            return response.message;
++                        }
++                    } catch (e) {
++                        return xhr.responseText;
++                    }
++                }
++
++                return fallback;
++            }
++
++            function normalizeUser(user) {
++                return {
++                    Id: prop(user, 'Id', 'id'),
++                    Name: prop(user, 'Name', 'name'),
++                    Email: prop(user, 'Email', 'email'),
++                    password: prop(user, 'password', 'password'),
++                    Role: prop(user, 'Role', 'role') || 'User',
++                    InterestTags: prop(user, 'InterestTags', 'interestTags')
++                };
++            }
++
++            function renderProfile(user) {
++                var interests = user.InterestTags || 'No interest tags added yet.';
++                var html =
++                    '<div class="profile-grid">' +
++                        '<div>' +
++                            '<div class="window-label">User Id</div>' +
++                            '<div class="window-value">' + htmlEncode(user.Id) + '</div>' +
++                        '</div>' +
++                        '<div>' +
++                            '<div class="window-label">Role</div>' +
++                            '<div class="window-value">' + htmlEncode(user.Role) + '</div>' +
++                        '</div>' +
++                        '<div>' +
++                            '<div class="window-label">Name</div>' +
++                            '<div class="window-value">' + htmlEncode(user.Name) + '</div>' +
++                        '</div>' +
++                        '<div>' +
++                            '<div class="window-label">Email</div>' +
++                            '<div class="window-value">' + htmlEncode(user.Email) + '</div>' +
++                        '</div>' +
++                    '</div>' +
++                    '<div class="window-label">Interest Tags</div>' +
++                    '<div class="window-value">' + htmlEncode(interests) + '</div>';
++
++                $('#profileBody').html(html);
++                $('#profileStatus').text('profile loaded');
++                $('#updateUserBtn, #deleteUserBtn').prop('disabled', false);
++            }
++
++            function loadProfile() {
++                $('#profileStatus').text('loading profile...');
++                $('#updateUserBtn, #deleteUserBtn').prop('disabled', true);
++
++                $.get('@Url.Action("Details", "User")')
++                    .done(function (user) {
++                        currentUser = normalizeUser(user);
++                        renderProfile(currentUser);
++                    })
++                    .fail(function (xhr) {
++                        $('#profileBody').html('<div class="text-center text-muted py-4">profile could not be loaded.</div>');
++                        $('#profileStatus').text('load failed');
++                        Swal.fire('Error', responseMessage(xhr, 'User details could not be loaded.'), 'error');
++                    });
++            }
++
++            $('#updateUserBtn').on('click', function () {
++                if (!currentUser) {
++                    return;
++                }
++
++                $('#editUserId').val(currentUser.Id);
++                $('#editUserRole').val(currentUser.Role);
++                $('#editName').val(currentUser.Name);
++                $('#editEmail').val(currentUser.Email);
++                $('#editPassword').val(currentUser.password);
++                $('#editInterestTags').val(currentUser.InterestTags);
++                editUserModal.show();
++            });
++
++            $('#deleteUserBtn').on('click', function () {
++                if (!currentUser) {
++                    return;
++                }
++
++                Swal.fire({
++                    title: 'Delete profile?',
++                    text: 'This will delete your account "' + currentUser.Name + '".',
++                    icon: 'warning',
++                    showCancelButton: true,
++                    confirmButtonColor: '#dc3545',
++                    cancelButtonColor: '#6c757d',
++                    confirmButtonText: 'Delete'
++                }).then(function (result) {
++                    if (!result.isConfirmed) {
++                        return;
++                    }
++
++                    $.ajax({
++                        url: '@Url.Action("Delete", "User")',
++                        type: 'POST',
++                        data: {
++                            __RequestVerificationToken: token
++                        },
++                        success: function (response) {
++                            Swal.fire('Deleted', responseMessage({ responseJSON: response }, 'User deleted successfully.'), 'success')
++                                .then(function () {
++                                    window.location.href = '@Url.Action("Logout", "Home")';
++                                });
++                        },
++                        error: function (xhr) {
++                            Swal.fire('Error', responseMessage(xhr, 'User could not be deleted.'), 'error');
++                        }
++                    });
++                });
++            });
++
++            $('#editUserForm').on('submit', function (event) {
++                event.preventDefault();
++
++                var id = Number($('#editUserId').val());
++                var name = $.trim($('#editName').val());
++                var email = $.trim($('#editEmail').val());
++                var password = $('#editPassword').val();
++                var role = $('#editUserRole').val() || 'User';
++                var interestTags = $.trim($('#editInterestTags').val());
++
++                if (!name || !email || !password) {
++                    Swal.fire('Required', 'Name, email and password are required.', 'info');
++                    return;
++                }
++
++                $.ajax({
++                    url: '@Url.Action("Edit", "User")',
++                    type: 'POST',
++                    data: {
++                        Id: id,
++                        Name: name,
++                        Email: email,
++                        password: password,
++                        Role: role,
++                        InterestTags: interestTags,
++                        __RequestVerificationToken: token
++                    },
++                    success: function (user) {
++                        currentUser = normalizeUser(user);
++                        renderProfile(currentUser);
++                        editUserModal.hide();
++                        Swal.fire('Updated', 'User profile has been updated.', 'success');
++                    },
++                    error: function (xhr) {
++                        Swal.fire('Error', responseMessage(xhr, 'User profile could not be updated.'), 'error');
++                    }
++                });
++            });
++
++            loadProfile();
++        });
++    </script>
++}
+diff --git a/Views/UserAlgo/Index.cshtml b/Views/UserAlgo/Index.cshtml
+new file mode 100644
+index 0000000..a7f8085
+--- /dev/null
++++ b/Views/UserAlgo/Index.cshtml
+@@ -0,0 +1,571 @@
++@{
++    ViewData["Title"] = "Recommendations";
++}
++
++<style>
++    .recommend-page {
++        background: #fff9db;
++        border: 1px solid #f1e6a8;
++        color: #222;
++        padding: 24px;
++    }
++
++    .recommend-header,
++    .recommend-content {
++        background: #ffffff;
++        border: 1px solid #eadf9b;
++    }
++
++    .recommend-header {
++        padding: 18px 20px;
++        margin-bottom: 18px;
++    }
++
++    .recommend-content {
++        padding: 16px;
++    }
++
++    .recommend-title {
++        font-size: 28px;
++        font-weight: 600;
++        margin: 0;
++    }
++
++    .recommend-subtitle {
++        color: #666;
++        margin: 4px 0 0;
++    }
++
++    .findyou-brand {
++        color: #8a6d00;
++        font-weight: 700;
++    }
++
++    .recommend-toolbar {
++        display: flex;
++        align-items: center;
++        justify-content: space-between;
++        gap: 12px;
++        margin-bottom: 16px;
++        flex-wrap: wrap;
++    }
++
++    .recommend-count {
++        color: #666;
++        font-size: 14px;
++        font-weight: 600;
++    }
++
++    .recommend-search {
++        max-width: 360px;
++        min-width: min(100%, 260px);
++    }
++
++    .recommend-grid {
++        min-height: 1px;
++    }
++
++    .recommend-card {
++        border: 1px solid #eadf9b;
++        border-radius: 0;
++        background: #ffffff;
++        height: 100%;
++        box-shadow: 0 2px 8px rgba(138, 109, 0, 0.08);
++    }
++
++    .recommend-card .card-header {
++        background: #fff3b0;
++        border-bottom: 1px solid #eadf9b;
++        font-weight: 600;
++        padding: 12px 14px;
++    }
++
++    .recommend-card .card-body {
++        padding: 14px;
++    }
++
++    .recommend-field {
++        background: #fffdf0;
++        border: 1px solid #f1e6a8;
++        padding: 9px 10px;
++    }
++
++    .recommend-label {
++        color: #8a6d00;
++        font-size: 12px;
++        font-weight: 700;
++        margin-bottom: 2px;
++        text-transform: uppercase;
++    }
++
++    .recommend-text {
++        color: #222;
++        margin: 0;
++        word-break: break-word;
++    }
++
++    .recommend-actions {
++        border-top: 1px solid #f1e6a8;
++        padding-top: 12px;
++    }
++
++    .recommend-tags {
++        display: flex;
++        flex-wrap: wrap;
++        gap: 6px;
++    }
++
++    .recommend-tag {
++        background: #ffffff;
++        border: 1px solid #eadf9b;
++        color: #8a6d00;
++        font-size: 12px;
++        font-weight: 700;
++        padding: 5px 8px;
++    }
++
++    .recommend-empty,
++    .recommend-loading,
++    .recommend-error {
++        border: 1px dashed #eadf9b;
++        color: #666;
++        padding: 28px 16px;
++        text-align: center;
++    }
++
++    .btn,
++    .form-control,
++    .modal-content {
++        border-radius: 0 !important;
++    }
++
++    .window-label {
++        color: #666;
++        font-size: 13px;
++        margin-bottom: 4px;
++    }
++
++    .window-value {
++        background: #fffdf0;
++        border: 1px solid #eadf9b;
++        padding: 10px 12px;
++        margin-bottom: 12px;
++        word-break: break-word;
++    }
++
++    .detail-meta-grid {
++        display: grid;
++        grid-template-columns: repeat(2, minmax(0, 1fr));
++        gap: 12px;
++        margin-bottom: 16px;
++    }
++
++    .detail-section {
++        border: 1px solid #eadf9b;
++        background: #fffdf0;
++        padding: 14px;
++        margin-bottom: 12px;
++    }
++
++    .detail-section-title {
++        color: #8a6d00;
++        font-size: 13px;
++        font-weight: 700;
++        letter-spacing: 0;
++        margin-bottom: 8px;
++        text-transform: uppercase;
++    }
++
++    .detail-section p,
++    .detail-section ul {
++        margin-bottom: 0;
++    }
++
++    .detail-list {
++        padding-left: 20px;
++    }
++
++    .detail-list li + li {
++        margin-top: 6px;
++    }
++
++    .tech-stack-list,
++    .tag-list {
++        display: flex;
++        flex-wrap: wrap;
++        gap: 8px;
++        margin: 0;
++        padding: 0;
++        list-style: none;
++    }
++
++    .tech-stack-list li,
++    .tag-list li {
++        border: 1px solid #eadf9b;
++        background: #ffffff;
++        padding: 6px 9px;
++        font-size: 14px;
++    }
++
++    @@media (max-width: 767.98px) {
++        .detail-meta-grid {
++            grid-template-columns: 1fr;
++        }
++    }
++</style>
++
++<div class="recommend-page">
++    <div class="recommend-header">
++        <p class="mb-1 findyou-brand">FindYOU</p>
++        <h1 class="recommend-title">Recommended Chats</h1>
++        <p class="recommend-subtitle">Public chats matched with your interest tags.</p>
++    </div>
++
++    <div class="recommend-content">
++        <div class="recommend-toolbar">
++            <div>
++                <div class="fw-semibold">For You</div>
++                <div id="recommendCount" class="recommend-count">Loading recommendations...</div>
++            </div>
++            <input id="recommendSearch" class="form-control recommend-search" placeholder="Search recommended chats..." />
++        </div>
++
++        <div id="recommendLoading" class="recommend-loading">Loading recommendations...</div>
++        <div id="recommendError" class="recommend-error d-none">Recommendations could not be loaded.</div>
++        <div id="recommendGrid" class="row g-3 recommend-grid d-none"></div>
++        <div id="recommendEmpty" class="recommend-empty d-none">No recommended chats found.</div>
++    </div>
++</div>
++
++<div class="modal fade" id="recommendDetailModal" tabindex="-1" aria-labelledby="recommendDetailModalTitle" aria-hidden="true">
++    <div class="modal-dialog modal-dialog-centered modal-lg">
++        <div class="modal-content">
++            <div class="modal-header" style="background:#fff3b0;">
++                <h5 class="modal-title" id="recommendDetailModalTitle">chat entry details</h5>
++                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
++            </div>
++            <div class="modal-body" id="recommendDetailBody"></div>
++            <div class="modal-footer">
++                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">close</button>
++            </div>
++        </div>
++    </div>
++</div>
++
++@section Scripts {
++    <script>
++        $(function () {
++            var recommendationData = [];
++            var filteredData = [];
++            var detailModal = new bootstrap.Modal(document.getElementById('recommendDetailModal'));
++
++            function htmlEncode(value) {
++                return $('<div>').text(value || '').html();
++            }
++
++            function normalizeChat(chat) {
++                var category = chat.Category || chat.category || {};
++
++                return {
++                    Id: chat.Id || chat.id,
++                    Title: chat.Title || chat.title || '',
++                    ChatLink: chat.ChatLink || chat.chatLink || '',
++                    Summary: chat.Summary || chat.summary || '',
++                    Notes: chat.Notes || chat.notes || '',
++                    ChatTags: chat.ChatTags || chat.chatTags || '',
++                    CreatedAt: chat.CreatedAt || chat.createdAt || '',
++                    CategoryName: chat.CategoryName || chat.categoryName || category.Name || category.name || ''
++                };
++            }
++
++            function lower(value) {
++                return (value || '').toString().toLowerCase();
++            }
++
++            function searchableText(chat) {
++                return [
++                    chat.Title,
++                    chat.Summary,
++                    chat.Notes,
++                    chat.ChatTags,
++                    chat.ChatLink
++                ].join(' ').toLowerCase();
++            }
++
++            function textValue(value) {
++                return $.trim((value || '').toString());
++            }
++
++            function shortText(value, fallback) {
++                var text = textValue(value);
++
++                if (!text) {
++                    return fallback;
++                }
++
++                return text.length > 150 ? text.substring(0, 147) + '...' : text;
++            }
++
++            function formatDate(value) {
++                var date = new Date(value);
++
++                if (Number.isNaN(date.getTime())) {
++                    return '';
++                }
++
++                return date.toLocaleDateString();
++            }
++
++            function formatCreatedAt(value) {
++                var date = new Date(value);
++
++                if (Number.isNaN(date.getTime())) {
++                    return textValue(value);
++                }
++
++                return date.toLocaleString();
++            }
++
++            function linkHtml(value) {
++                if (!value) {
++                    return '';
++                }
++
++                return '<a href="' + htmlEncode(value) + '" target="_blank" rel="noopener noreferrer">' + htmlEncode(value) + '</a>';
++            }
++
++            function removeTags(value) {
++                return textValue(value).replace(/#[^\s#]+/g, '').replace(/\s+/g, ' ').trim();
++            }
++
++            function cleanSectionText(value) {
++                return removeTags(value)
++                    .replace(/^\s*[:\-]+/, '')
++                    .replace(/\s+/g, ' ')
++                    .trim();
++            }
++
++            function extractBetween(text, startPattern, endPattern) {
++                var lowerText = text.toLowerCase();
++                var startMatch = lowerText.match(startPattern);
++
++                if (!startMatch) {
++                    return '';
++                }
++
++                var start = startMatch.index + startMatch[0].length;
++                var rest = text.slice(start);
++                var restLower = rest.toLowerCase();
++                var endMatch = endPattern ? restLower.match(endPattern) : null;
++
++                return endMatch ? rest.slice(0, endMatch.index) : rest;
++            }
++
++            function splitSummaryItems(value) {
++                return cleanSectionText(value)
++                    .split(/\u2705|\n|;/)
++                    .map(function (item) {
++                        return item.replace(/^\s*(features?|and)\s*/i, '').replace(/^[,.\-\s]+/, '').trim();
++                    })
++                    .filter(Boolean);
++            }
++
++            function techItems(value) {
++                var cleaned = cleanSectionText(value).replace(/^[:\-]+/, '').trim();
++
++                if (!cleaned) {
++                    return [];
++                }
++
++                var knownTech = [
++                    'ASP.NET Core MVC',
++                    '.NET 9',
++                    'C#',
++                    'Entity Framework Core',
++                    'PostgreSQL',
++                    'NeonDB',
++                    'HTML',
++                    'CSS',
++                    'Bootstrap',
++                    'Repository Pattern',
++                    'Dependency Injection',
++                    'Session Management'
++                ];
++
++                return knownTech.filter(function (tech) {
++                    return cleaned.toLowerCase().indexOf(tech.toLowerCase()) >= 0;
++                });
++            }
++
++            function tagsFromSummary(value) {
++                return textValue(value).match(/#[^\s#]+/g) || [];
++            }
++
++            function sectionHtml(title, bodyHtml) {
++                if (!bodyHtml) {
++                    return '';
++                }
++
++                return '<section class="detail-section">' +
++                    '<div class="detail-section-title">' + htmlEncode(title) + '</div>' +
++                    bodyHtml +
++                '</section>';
++            }
++
++            function paragraphHtml(value) {
++                var cleaned = cleanSectionText(value);
++                return cleaned ? '<p>' + htmlEncode(cleaned) + '</p>' : '';
++            }
++
++            function listHtml(items, className) {
++                if (!items.length) {
++                    return '';
++                }
++
++                return '<ul class="' + className + '">' + items.map(function (item) {
++                    return '<li>' + htmlEncode(item) + '</li>';
++                }).join('') + '</ul>';
++            }
++
++            function tagsListHtml(tags) {
++                var items = textValue(tags).split(/\s+/).filter(Boolean);
++                return listHtml(items, 'tag-list');
++            }
++
++            function structuredSummaryHtml(summary) {
++                var original = textValue(summary);
++
++                if (!original) {
++                    return sectionHtml('Summary', '<p class="text-muted">No summary added yet.</p>');
++                }
++
++                var purpose = extractBetween(original, /^/, /\bfeatures?\b/);
++                var features = extractBetween(original, /\bfeatures?\b/, /\btech stack\b/);
++                var techStack = extractBetween(original, /\btech stack\b/, /\bthis project helped\b/);
++                var learning = extractBetween(original, /\bthis project helped\b/, /#[^\s#]+/);
++                var tags = tagsFromSummary(original);
++                var html = '';
++
++                html += sectionHtml('Project Purpose', paragraphHtml(purpose || original));
++                html += sectionHtml('Key Features', listHtml(splitSummaryItems(features), 'detail-list'));
++                html += sectionHtml('Tech Stack', listHtml(techItems(techStack), 'tech-stack-list'));
++                html += sectionHtml('Learning Outcome', paragraphHtml(learning ? 'This project helped ' + learning : ''));
++                html += sectionHtml('Tags', listHtml(tags, 'tag-list'));
++
++                return html || sectionHtml('Summary', paragraphHtml(original));
++            }
++
++            function findChatEntry(id) {
++                return recommendationData.find(function (chat) {
++                    return chat.Id === Number(id);
++                });
++            }
++
++            function tagsHtml(tags) {
++                var items = $.trim(tags || '').split(/\s+/).filter(Boolean);
++
++                if (!items.length) {
++                    return '<p class="recommend-text text-muted">No tags added.</p>';
++                }
++
++                return '<div class="recommend-tags">' + items.map(function (tag) {
++                    return '<span class="recommend-tag">' + htmlEncode(tag) + '</span>';
++                }).join('') + '</div>';
++            }
++
++            function renderCards() {
++                var cards = filteredData.map(function (chat) {
++                    var createdAt = formatDate(chat.CreatedAt);
++                    var categoryName = lower(chat.CategoryName || 'recommended');
++
++                    return '<div class="col-12 col-md-6 col-xl-4">' +
++                        '<div class="card recommend-card" data-id="' + chat.Id + '">' +
++                            '<div class="card-header">' + htmlEncode(lower(chat.Title) || 'untitled chat') + '</div>' +
++                            '<div class="card-body d-flex flex-column">' +
++                                '<div class="recommend-field">' +
++                                    '<div class="recommend-label">category</div>' +
++                                    '<div class="recommend-text">' + htmlEncode(categoryName) + '</div>' +
++                                '</div>' +
++                                '<div class="recommend-field">' +
++                                    '<div class="recommend-label">summary</div>' +
++                                    '<p class="recommend-text">' + htmlEncode(shortText(chat.Summary, 'No summary available.')) + '</p>' +
++                                '</div>' +
++                                '<div class="recommend-field">' +
++                                    '<div class="recommend-label">tags</div>' +
++                                    tagsHtml(chat.ChatTags) +
++                                '</div>' +
++                                (createdAt ? '<div class="recommend-field"><div class="recommend-label">created</div><p class="recommend-text">' + htmlEncode(createdAt) + '</p></div>' : '') +
++                                '<div class="recommend-actions mt-auto">' +
++                                    '<button type="button" class="btn btn-sm btn-outline-primary me-1 js-detail">details</button>' +
++                                    '<a class="btn btn-sm btn-warning text-dark" href="' + htmlEncode(chat.ChatLink) + '" target="_blank" rel="noopener noreferrer">open chat</a>' +
++                                '</div>' +
++                            '</div>' +
++                        '</div>' +
++                    '</div>';
++                }).join('');
++
++                $('#recommendGrid').html(cards);
++                $('#recommendGrid').toggleClass('d-none', filteredData.length === 0);
++                $('#recommendEmpty').toggleClass('d-none', filteredData.length !== 0);
++                $('#recommendCount').text(filteredData.length + ' of ' + recommendationData.length + ' recommendations');
++            }
++
++            function applySearch() {
++                var searchValue = $.trim($('#recommendSearch').val()).toLowerCase();
++                filteredData = recommendationData.filter(function (chat) {
++                    return !searchValue || searchableText(chat).indexOf(searchValue) >= 0;
++                });
++                renderCards();
++            }
++
++            function fillDetail(chat) {
++                var detailHtml =
++                    '<div class="detail-meta-grid">' +
++                        '<div>' +
++                            '<div class="window-label">title</div>' +
++                            '<div class="window-value">' + htmlEncode(textValue(chat.Title)) + '</div>' +
++                        '</div>' +
++                        '<div>' +
++                            '<div class="window-label">category</div>' +
++                            '<div class="window-value">' + htmlEncode(textValue(chat.CategoryName) || 'Recommended') + '</div>' +
++                        '</div>' +
++                        '<div>' +
++                            '<div class="window-label">created at</div>' +
++                            '<div class="window-value">' + htmlEncode(formatCreatedAt(chat.CreatedAt)) + '</div>' +
++                        '</div>' +
++                        '<div>' +
++                            '<div class="window-label">entry id</div>' +
++                            '<div class="window-value">' + htmlEncode(chat.Id) + '</div>' +
++                        '</div>' +
++                    '</div>' +
++                    sectionHtml('Chat Link', '<p>' + linkHtml(chat.ChatLink) + '</p>') +
++                    structuredSummaryHtml(chat.Summary) +
++                    sectionHtml('Chat Tags', tagsListHtml(chat.ChatTags)) +
++                    sectionHtml('Notes', paragraphHtml(chat.Notes));
++
++                $('#recommendDetailBody').html(detailHtml);
++            }
++
++            $('#recommendSearch').on('input', applySearch);
++
++            $('#recommendGrid').on('click', '.js-detail', function () {
++                var chat = findChatEntry($(this).closest('.recommend-card').data('id'));
++                fillDetail(chat);
++                detailModal.show();
++            });
++
++            $.get('@Url.Action("GetUserRecommendationBasic", "UserAlgo")')
++                .done(function (chats) {
++                    recommendationData = (chats || []).map(normalizeChat);
++                    filteredData = recommendationData.slice();
++                    $('#recommendLoading').addClass('d-none');
++                    renderCards();
++                })
++                .fail(function () {
++                    $('#recommendLoading').addClass('d-none');
++                    $('#recommendError').removeClass('d-none');
++                    $('#recommendCount').text('Unable to load recommendations');
++                });
++        });
++    </script>
++}
+diff --git a/appsettings.json b/appsettings.json
+index 56e630c..4c38b18 100644
+--- a/appsettings.json
++++ b/appsettings.json
+@@ -2,9 +2,14 @@
+   "Logging": {
+     "LogLevel": {
+       "Default": "Information",
+-      "Microsoft.AspNetCore": "Warning"
++      "Microsoft.AspNetCore": "Warning",
++      "Microsoft.EntityFrameworkCore.Database.Command": "None"
+     }
+   },
++   "Groq": {
++    "ApiKey": ""
++  },
++  
+  
+   "ConnectionStrings": {
+     "DefaultConnection": ""

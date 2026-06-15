@@ -1,4 +1,5 @@
 # Build folders
+tmp/
 bin/
 obj/
 

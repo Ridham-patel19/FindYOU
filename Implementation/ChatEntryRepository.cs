@@ -48,6 +48,11 @@ public class ChatEntryRepository : IChatEntryInterface
         .FirstOrDefault(x => x.Id == id && x.UserId == userid);
     }
 
+    public bool IsEligible(int chatId, int userId)
+    {
+       return _context.ChatEntries.Any(x => x.Id == chatId && x.UserId == userId);
+    }
+
     public void Save()
     {
         _context.SaveChanges();
@@ -58,6 +63,26 @@ public class ChatEntryRepository : IChatEntryInterface
         _context.ChatEntries.Update(chatEntry);
     }
 
+public int UpdateChatAccess(int id , bool isPublic)
+    {
+       ChatEntry chat = new ChatEntry
+       {
+           Id = id,
+           IsPublic = isPublic
+       };
 
+System.Console.WriteLine(isPublic);
+//its just store meta dat of this obj its in DB 
+          _context.ChatEntries.Attach(chat);
+   _context.Entry(chat).Property(x => x.IsPublic).IsModified = true;
+
+   int rows =  _context.SaveChanges();
+
+   System.Console.WriteLine(rows);
+
+   return rows>0 ? 1 : 0;
+
+
+    }
     
 }

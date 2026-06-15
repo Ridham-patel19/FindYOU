@@ -8,9 +8,13 @@ public interface IChatEntryInterface
 
     List<ChatEntry> GetByCategory(int id , int? userid);
 
+    public bool IsEligible(int chatId, int userId);
+
     void Add(ChatEntry chatEntry);
 
     void Update(ChatEntry chatEntry);
+
+    int UpdateChatAccess(int id , bool isPublic);
 
     void Delete(int id);
 

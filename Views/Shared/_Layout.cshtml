@@ -10,39 +10,224 @@
     <link rel="stylesheet" href="~/FindYOU.styles.css" asp-append-version="true" />
 </head>
 <body>
+    <style>
+        .app-shell {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: #fffdf0;
+        }
+
+        .app-navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1020;
+            background: #ffffff;
+            border-bottom: 1px solid #eadf9b;
+        }
+
+        .app-brand {
+            color: #8a6d00 !important;
+            font-weight: 800;
+            letter-spacing: 0;
+        }
+
+        .menu-toggle {
+            border: 1px solid #eadf9b;
+            background: #fff3b0;
+            color: #222;
+            width: 42px;
+            height: 38px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            line-height: 1;
+        }
+
+        .sidebar-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 1030;
+            background: rgba(0, 0, 0, 0.35);
+            display: none;
+        }
+
+        .sidebar-backdrop.is-open {
+            display: block;
+        }
+
+        .app-sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1040;
+            width: 280px;
+            max-width: 86vw;
+            height: 100vh;
+            background: #ffffff;
+            border-right: 1px solid #eadf9b;
+            transform: translateX(-100%);
+            transition: transform 180ms ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .app-sidebar.is-open {
+            transform: translateX(0);
+        }
+
+        .sidebar-head {
+            background: #fff3b0;
+            border-bottom: 1px solid #eadf9b;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .sidebar-title {
+            color: #8a6d00;
+            font-size: 20px;
+            font-weight: 800;
+            margin: 0;
+        }
+
+        .sidebar-close {
+            border: 1px solid #eadf9b;
+            background: #ffffff;
+            color: #222;
+            width: 36px;
+            height: 34px;
+            font-size: 24px;
+            line-height: 1;
+        }
+
+        .sidebar-menu {
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .sidebar-menu .nav-link {
+            border: 1px solid #f1e6a8;
+            background: #fffdf0;
+            color: #222 !important;
+            font-weight: 600;
+            padding: 11px 12px;
+        }
+
+        .sidebar-menu .nav-link:hover,
+        .sidebar-menu .nav-link:focus {
+            background: #fff3b0;
+            color: #6f5700 !important;
+        }
+
+        .app-main {
+            flex: 1;
+            padding-top: 76px;
+            padding-bottom: 28px;
+        }
+
+        .app-footer {
+            background: #ffffff;
+            border-top: 1px solid #eadf9b;
+            padding: 14px 0;
+            margin-top: auto;
+        }
+
+        .app-footer-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .app-footer-text {
+            color: #666;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .btn,
+        .navbar-toggler {
+            border-radius: 0 !important;
+        }
+    </style>
+
+    <div class="app-shell">
     <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm app-navbar">
             <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">FindYOU</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
+                <button class="menu-toggle" type="button" id="sidebarOpen" aria-label="Open navigation">
+                    &#9776;
                 </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
-                        </li>
-                        
-                    </ul>
-                </div>
+                <a class="navbar-brand app-brand ms-2" asp-area="" asp-controller="Home" asp-action="Index">FindYOU</a>
             </div>
         </nav>
     </header>
-    <div class="container">
+
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <aside class="app-sidebar" id="appSidebar" aria-label="Main navigation">
+        <div class="sidebar-head">
+            <p class="sidebar-title">FindYOU</p>
+            <button class="sidebar-close" type="button" id="sidebarClose" aria-label="Close navigation">&times;</button>
+        </div>
+        <nav class="sidebar-menu">
+            <a class="nav-link" asp-area="" asp-controller="ChatEntry" asp-action="Index">Your Chats</a>
+            <a class="nav-link" asp-area="" asp-controller="Category" asp-action="Index">Category</a>
+            <a class="nav-link" asp-area="" asp-controller="UserAlgo" asp-action="Index">Home</a>
+            <a class="nav-link" asp-area="" asp-controller="User" asp-action="Index">Profile</a>
+        </nav>
+        <footer class="app-footer">
+            <div class="px-3">
+                <a asp-area="" asp-controller="Home" asp-action="Logout" class="btn btn-outline-danger w-100">Logout</a>
+            </div>
+        </footer>
+    </aside>
+
+    <div class="container app-main">
         <main role="main" class="pb-3">
             @RenderBody()
         </main>
     </div>
 
-    <footer class="border-top footer text-muted">
-        <!-- <div class="container">
-            &copy; 2026 - FindYOU - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-        </div> -->
-    </footer>
+    </div>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <script>
+        (function () {
+            var sidebar = document.getElementById('appSidebar');
+            var backdrop = document.getElementById('sidebarBackdrop');
+            var openButton = document.getElementById('sidebarOpen');
+            var closeButton = document.getElementById('sidebarClose');
+
+            function openSidebar() {
+                sidebar.classList.add('is-open');
+                backdrop.classList.add('is-open');
+            }
+
+            function closeSidebar() {
+                sidebar.classList.remove('is-open');
+                backdrop.classList.remove('is-open');
+            }
+
+            openButton.addEventListener('click', openSidebar);
+            closeButton.addEventListener('click', closeSidebar);
+            backdrop.addEventListener('click', closeSidebar);
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape') {
+                    closeSidebar();
+                }
+            });
+        })();
+    </script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

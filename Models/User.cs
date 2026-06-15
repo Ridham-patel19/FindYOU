@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace FindYOU;
 
@@ -23,6 +24,9 @@ public class User
 
     public string Role {get ; set ;} = "User";
 
+     public string? InterestTags { get; set; }
+
+[JsonIgnore]
     public ICollection<ChatEntry> ChatEntries { get; set; }
     = new List<ChatEntry>();
 }

@@ -3,6 +3,7 @@ using System;
 using FindYOU;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FindYOU.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260614193143_AddSearchVector")]
+    partial class AddSearchVector
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -61,6 +64,7 @@ namespace FindYOU.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("ChatTags")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
@@ -106,6 +110,7 @@ namespace FindYOU.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("InterestTags")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Name")

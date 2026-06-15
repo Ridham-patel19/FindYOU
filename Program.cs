@@ -1,16 +1,24 @@
 using Microsoft.EntityFrameworkCore;
 using FindYOU;
+using FindYOU.Repositories;
 // using FindYOU;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<ICategoryInterface, CategoryRepository>();
 
 builder.Services.AddScoped<IChatEntryInterface, ChatEntryRepository>();
 
+builder.Services.AddScoped<IUserInterface , UserRepository>();
+
 builder.Services.AddScoped<IAuthInterface , AuthRepository>();
+
+builder.Services.AddScoped<IUserAlgoInterface , UserAlgoRepository>();
+
+builder.Services.AddScoped<AITagsGeneration>();
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(
