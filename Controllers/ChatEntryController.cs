@@ -168,6 +168,8 @@ namespace MyApp.Namespace
                 _repo.Update(chat);
                 _repo.Save();
 
+                await _repo.UpdateSearchVector(chat.Id);
+
                 return RedirectToAction(nameof(Index));
             }
 
@@ -208,7 +210,49 @@ namespace MyApp.Namespace
             return RedirectToAction(nameof(Index));
         }
 
-       
+
+
+       public async  Task<IActionResult> SaveBookMark(int chatid)
+        {
+            int result = CheckAuth();
+
+            if(result == 0)
+            {
+
+                return RedirectToAction("Login" , "Home");
+            }else if(UserId == null)
+            {
+                return RedirectToAction("Login" , "Home");
+            }
+
+            int userid = (int)UserId;
+
+            // bool ismarked = await _repo.isBookMarked(userid , chatid);
+
+            // if (!ismarked)
+            // {
+            //     return Unauthorized();
+            // }
+
+            int row =  _repo.AddBookMark(chatid , userid);
+
+            if(row <= 0)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "error while marking chat"
+                });
+            }
+
+            return Ok(new
+            {
+                success = false,
+                message = "BookMarked!!"
+            });
+
+            
+        }
         public IActionResult GetByCategory(int id)
         {
 
@@ -250,6 +294,81 @@ namespace MyApp.Namespace
                 return 0;
             }
         }
+
+public async Task<IActionResult> Bookmark()
+        {
+
+
+
+ int results = CheckAuth();
+
+            if(results == 0)
+            {
+
+                return RedirectToAction("Login" , "Home");
+            }else if(UserId == null)
+            {
+                return RedirectToAction("Login" , "Home");
+            }
+                 int userid = (int)UserId;
+
+            var chats = await _repo.GetAllBookMarkeByUser(userid);
+
+            
+
+            foreach (var item in chats)
+            {
+                System.Console.WriteLine(item.Category);
+            }
+
+            return View(chats);
+        }
+
+
+     [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteBookMark(int id)
+        {
+             int results = CheckAuth();
+
+             if(results == 0)
+            {
+
+                return RedirectToAction("Login" , "Home");
+            }else if(UserId == null)
+            {
+                return RedirectToAction("Login" , "Home");
+            }
+
+            int userid = (int)UserId;
+
+            Bookmark bookmark = await _repo.GetBookMarkByUserAndChat(id , userid);
+
+            if(bookmark == null)
+            return Unauthorized();
+
+
+
+            
+
+
+                 int row = _repo.DeleteBookMark(bookmark.Id);
+
+            if (row == 0)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "there is an error while removing book marking"
+                });
+
+
+            }
+
+            return RedirectToAction("Bookmark");
+
+        }
+
 
 [HttpPost]
 public async Task<IActionResult> UpdateChatAccess(int chatid , bool ispublic)

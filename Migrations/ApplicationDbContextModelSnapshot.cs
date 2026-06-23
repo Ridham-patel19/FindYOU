@@ -22,6 +22,33 @@ namespace FindYOU.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("FindYOU.Bookmark", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ChatEntryId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChatEntryId");
+
+                    b.HasIndex("UserId", "ChatEntryId")
+                        .IsUnique();
+
+                    b.ToTable("Bookmarks");
+                });
+
             modelBuilder.Entity("FindYOU.Category", b =>
                 {
                     b.Property<int>("Id")
@@ -127,6 +154,25 @@ namespace FindYOU.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("FindYOU.Bookmark", b =>
+                {
+                    b.HasOne("FindYOU.ChatEntry", "ChatEntry")
+                        .WithMany("Bookmarks")
+                        .HasForeignKey("ChatEntryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FindYOU.User", "User")
+                        .WithMany("Bookmarks")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ChatEntry");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("FindYOU.Category", b =>
                 {
                     b.HasOne("FindYOU.User", "User")
@@ -162,8 +208,15 @@ namespace FindYOU.Migrations
                     b.Navigation("ChatEntries");
                 });
 
+            modelBuilder.Entity("FindYOU.ChatEntry", b =>
+                {
+                    b.Navigation("Bookmarks");
+                });
+
             modelBuilder.Entity("FindYOU.User", b =>
                 {
+                    b.Navigation("Bookmarks");
+
                     b.Navigation("ChatEntries");
                 });
 #pragma warning restore 612, 618

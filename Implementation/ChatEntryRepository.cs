@@ -1,4 +1,5 @@
 ﻿
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 
 namespace FindYOU;
@@ -17,6 +18,19 @@ public class ChatEntryRepository : IChatEntryInterface
         _context.ChatEntries.Add(chatEntry);
     }
 
+    public int AddBookMark(int chatId, int userId)
+    {
+        var bookmark = new Bookmark
+        {
+            ChatEntryId = chatId,
+            UserId = userId
+        };
+
+        _context.Bookmarks.Add(bookmark);
+
+       return  _context.SaveChanges();
+    }
+
     public void Delete(int id)
     {
         var chat = _context.ChatEntries.Find(id);
@@ -27,13 +41,46 @@ public class ChatEntryRepository : IChatEntryInterface
         }
     }
 
-    public IEnumerable<ChatEntry> GetAll(int? userid)
+   public int DeleteBookMark(int id)
+{
+    var chat = _context.Bookmarks.Find(id);
+
+    if (chat == null)
+        return 0;
+
+    _context.Bookmarks.Remove(chat);
+
+    int rowsAffected = _context.SaveChanges();
+
+    return rowsAffected > 0?1:0;
+}    public IEnumerable<ChatEntry> GetAll(int? userid)
     {
         
         return _context.ChatEntries.Include(x => x.Category).Where(x => x.UserId == userid).ToList();
     }
 
-   public List<ChatEntry> GetByCategory(int id , int? userid)
+    public async Task<List<ChatEntry>> GetAllBookMarkeByUser(int userId)
+    {
+      var chats = await _context.Bookmarks
+    .Where(b => b.UserId == userId)
+    .Include(b => b.ChatEntry)
+        .ThenInclude(c => c.Category)
+    .Select(b => b.ChatEntry)
+    .Where(c => c.IsPublic)
+    .ToListAsync();
+        
+
+      return chats;
+    }
+
+    public async Task<Bookmark> GetBookMarkByUserAndChat(int chatid, int userid)
+    {
+        Bookmark? bookmark = await _context.Bookmarks.FirstOrDefaultAsync(x => x.ChatEntryId == chatid && x.UserId == userid);
+
+        return bookmark;
+    }
+
+    public List<ChatEntry> GetByCategory(int id , int? userid)
 {
     return _context.ChatEntries
                    .Include(x => x.Category)
@@ -46,6 +93,11 @@ public class ChatEntryRepository : IChatEntryInterface
         return _context.ChatEntries
         .Include(x => x.Category)
         .FirstOrDefault(x => x.Id == id && x.UserId == userid);
+    }
+
+    public async Task<bool> isBookMarked(int userid, int chatid)
+    {
+        return await _context.Bookmarks.AnyAsync(x => x.ChatEntryId == chatid && x.UserId == userid);
     }
 
     public bool IsEligible(int chatId, int userId)
@@ -84,5 +136,19 @@ System.Console.WriteLine(isPublic);
 
 
     }
-    
+
+    public async Task UpdateSearchVector(int chatId)
+    {
+        await _context.Database.ExecuteSqlInterpolatedAsync($@"
+        UPDATE ""ChatEntries""
+        SET search_vector =
+            to_tsvector(
+                'english',
+                coalesce(""Title"", '') || ' ' ||
+                coalesce(""Summary"", '') || ' ' ||
+                coalesce(""Tags"", '')
+            )
+        WHERE ""Id"" = {chatId}
+    ");
+    }
 }

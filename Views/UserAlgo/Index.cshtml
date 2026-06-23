@@ -71,13 +71,14 @@
         background: #ffffff;
         height: 100%;
         box-shadow: 0 2px 8px rgba(138, 109, 0, 0.08);
+        position: relative;
     }
 
     .recommend-card .card-header {
         background: #fff3b0;
         border-bottom: 1px solid #eadf9b;
         font-weight: 600;
-        padding: 12px 14px;
+        padding: 12px 112px 12px 14px;
     }
 
     .recommend-card .card-body {
@@ -107,6 +108,60 @@
     .recommend-actions {
         border-top: 1px solid #f1e6a8;
         padding-top: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .bookmark-btn {
+        border: 1px solid #eadf9b;
+        background: #ffffff;
+        color: #8a6d00;
+        min-width: 34px;
+        height: 31px;
+        padding: 0 9px;
+        font-weight: 800;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .bookmark-btn:hover,
+    .bookmark-btn:focus {
+        background: #fff3b0;
+    }
+
+    .bookmark-btn.is-active {
+        background: #0d6efd;
+        border-color: #0d6efd;
+        color: #ffffff;
+    }
+
+    .bookmark-btn.is-active:disabled {
+        opacity: 1;
+    }
+
+    .bookmark-corner {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        z-index: 1;
+    }
+
+    .bookmark-corner-label {
+        background: #ffffff;
+        border: 1px solid #eadf9b;
+        color: #8a6d00;
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1;
+        padding: 5px 6px;
+        text-transform: lowercase;
     }
 
     .recommend-tags {
@@ -253,6 +308,8 @@
 </div>
 
 @section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <script>
         $(function () {
             var recommendationData = [];
@@ -261,6 +318,10 @@
 
             function htmlEncode(value) {
                 return $('<div>').text(value || '').html();
+            }
+
+            function boolValue(value) {
+                return value === true || value === 'true' || value === 1 || value === '1';
             }
 
             function normalizeChat(chat) {
@@ -274,6 +335,7 @@
                     Notes: chat.Notes || chat.notes || '',
                     ChatTags: chat.ChatTags || chat.chatTags || '',
                     CreatedAt: chat.CreatedAt || chat.createdAt || '',
+                    IsBookmarked: boolValue(chat.IsBookmarked || chat.isBookmarked),
                     CategoryName: chat.CategoryName || chat.categoryName || category.Name || category.name || ''
                 };
             }
@@ -461,6 +523,25 @@
                 });
             }
 
+            function responseMessage(xhr, fallback) {
+                if (xhr && xhr.responseJSON && xhr.responseJSON.message) {
+                    return xhr.responseJSON.message;
+                }
+
+                if (xhr && xhr.responseText) {
+                    try {
+                        var response = JSON.parse(xhr.responseText);
+                        if (response.message) {
+                            return response.message;
+                        }
+                    } catch (e) {
+                        return xhr.responseText;
+                    }
+                }
+
+                return fallback;
+            }
+
             function tagsHtml(tags) {
                 var items = $.trim(tags || '').split(/\s+/).filter(Boolean);
 
@@ -495,6 +576,10 @@
                                     tagsHtml(chat.ChatTags) +
                                 '</div>' +
                                 (createdAt ? '<div class="recommend-field"><div class="recommend-label">created</div><p class="recommend-text">' + htmlEncode(createdAt) + '</p></div>' : '') +
+                                '<div class="bookmark-corner">' +
+                                    '<span class="bookmark-corner-label">bookmark</span>' +
+                                    '<button type="button" class="bookmark-btn js-bookmark' + (chat.IsBookmarked ? ' is-active' : '') + '" title="' + (chat.IsBookmarked ? 'bookmarked' : 'save bookmark') + '" aria-label="' + (chat.IsBookmarked ? 'bookmarked' : 'save bookmark') + '" ' + (chat.IsBookmarked ? 'disabled' : '') + '>&#9733;</button>' +
+                                '</div>' +
                                 '<div class="recommend-actions mt-auto">' +
                                     '<button type="button" class="btn btn-sm btn-outline-primary me-1 js-detail">details</button>' +
                                     '<a class="btn btn-sm btn-warning text-dark" href="' + htmlEncode(chat.ChatLink) + '" target="_blank" rel="noopener noreferrer">open chat</a>' +
@@ -552,6 +637,35 @@
                 var chat = findChatEntry($(this).closest('.recommend-card').data('id'));
                 fillDetail(chat);
                 detailModal.show();
+            });
+
+            $('#recommendGrid').on('click', '.js-bookmark', function () {
+                var button = $(this);
+                var chat = findChatEntry(button.closest('.recommend-card').data('id'));
+
+                if (!chat || chat.IsBookmarked) {
+                    return;
+                }
+
+                button.prop('disabled', true).addClass('is-active');
+
+                $.ajax({
+                    url: '@Url.Action("SaveBookMark", "ChatEntry")',
+                    type: 'POST',
+                    data: {
+                        chatid: chat.Id
+                    },
+                    success: function (response) {
+                        chat.IsBookmarked = true;
+                        button.attr('title', 'bookmarked').attr('aria-label', 'bookmarked');
+                        Swal.fire('saved', (response && response.message) || 'chat has been bookmarked.', 'success');
+                    },
+                    error: function (xhr) {
+                        chat.IsBookmarked = false;
+                        button.prop('disabled', false).removeClass('is-active');
+                        Swal.fire('error', responseMessage(xhr, 'chat could not be bookmarked.'), 'error');
+                    }
+                });
             });
 
             $.get('@Url.Action("GetUserRecommendationBasic", "UserAlgo")')

@@ -1,0 +1,743 @@
+@model object
+@using System.Text.Json
+
+@{
+    ViewData["Title"] = "Bookmarks";
+
+    var bookmarkedChats = new List<FindYOU.ChatEntry>();
+
+    if (Model is Task<List<FindYOU.ChatEntry>> chatTask)
+    {
+        bookmarkedChats = await chatTask ?? new List<FindYOU.ChatEntry>();
+    }
+    else if (Model is IEnumerable<FindYOU.ChatEntry> chats)
+    {
+        bookmarkedChats = chats.ToList();
+    }
+
+    var chatEntries = bookmarkedChats.Select(chat => new
+    {
+        chat.Id,
+        chat.Title,
+        chat.ChatLink,
+        chat.Summary,
+        chat.Notes,
+        chat.ChatTags,
+        chat.CreatedAt,
+        chat.CategoryId,
+        CategoryName = chat.Category != null ? chat.Category.Name : string.Empty
+    });
+}
+
+<style>
+    .bookmark-page {
+        background: #fff9db;
+        border: 1px solid #f1e6a8;
+        color: #222;
+        padding: 24px;
+    }
+
+    .bookmark-header,
+    .bookmark-content {
+        background: #ffffff;
+        border: 1px solid #eadf9b;
+    }
+
+    .bookmark-header {
+        padding: 18px 20px;
+        margin-bottom: 18px;
+    }
+
+    .bookmark-content {
+        padding: 16px;
+    }
+
+    .bookmark-title {
+        font-size: 28px;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .bookmark-subtitle,
+    .bookmark-count {
+        color: #666;
+    }
+
+    .bookmark-subtitle {
+        margin: 4px 0 0;
+    }
+
+    .bookmark-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+    }
+
+    .bookmark-count {
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .bookmark-search {
+        max-width: 360px;
+        min-width: min(100%, 260px);
+    }
+
+    .bookmark-card {
+        border: 1px solid #eadf9b;
+        border-radius: 0;
+        background: #ffffff;
+        height: 100%;
+        box-shadow: 0 2px 8px rgba(138, 109, 0, 0.08);
+        position: relative;
+    }
+
+    .bookmark-card .card-header {
+        background: #fff3b0;
+        border-bottom: 1px solid #eadf9b;
+        font-weight: 600;
+        padding: 12px 112px 12px 14px;
+    }
+
+    .bookmark-card .card-body {
+        padding: 14px;
+    }
+
+    .bookmark-field {
+        background: #fffdf0;
+        border: 1px solid #f1e6a8;
+        padding: 9px 10px;
+    }
+
+    .bookmark-label {
+        color: #8a6d00;
+        font-size: 12px;
+        font-weight: 700;
+        margin-bottom: 2px;
+        text-transform: uppercase;
+    }
+
+    .bookmark-text {
+        color: #222;
+        margin: 0;
+        word-break: break-word;
+    }
+
+    .bookmark-actions {
+        border-top: 1px solid #f1e6a8;
+        padding-top: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .bookmark-save-btn {
+        border: 1px solid #eadf9b;
+        background: #fff3b0;
+        color: #8a6d00;
+        min-width: 34px;
+        height: 31px;
+        padding: 0 9px;
+        font-weight: 800;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .bookmark-save-btn:hover,
+    .bookmark-save-btn:focus {
+        background: #ffffff;
+    }
+
+    .bookmark-corner {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        z-index: 1;
+    }
+
+    .bookmark-corner-label {
+        background: #ffffff;
+        border: 1px solid #eadf9b;
+        color: #8a6d00;
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1;
+        padding: 5px 6px;
+        text-transform: lowercase;
+    }
+
+    .bookmark-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .bookmark-tag {
+        background: #ffffff;
+        border: 1px solid #eadf9b;
+        color: #8a6d00;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 5px 8px;
+    }
+
+    .bookmark-empty {
+        border: 1px dashed #eadf9b;
+        color: #666;
+        padding: 28px 16px;
+        text-align: center;
+    }
+
+    .findyou-brand {
+        color: #8a6d00;
+        font-weight: 700;
+    }
+
+    .btn,
+    .form-control,
+    .modal-content {
+        border-radius: 0 !important;
+    }
+
+    .window-label {
+        color: #666;
+        font-size: 13px;
+        margin-bottom: 4px;
+    }
+
+    .window-value {
+        background: #fffdf0;
+        border: 1px solid #eadf9b;
+        padding: 10px 12px;
+        margin-bottom: 12px;
+        word-break: break-word;
+    }
+
+    .detail-meta-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .detail-section {
+        border: 1px solid #eadf9b;
+        background: #fffdf0;
+        padding: 14px;
+        margin-bottom: 12px;
+    }
+
+    .detail-section-title {
+        color: #8a6d00;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+    }
+
+    .detail-section p,
+    .detail-section ul {
+        margin-bottom: 0;
+    }
+
+    .detail-list {
+        padding-left: 20px;
+    }
+
+    .detail-list li + li {
+        margin-top: 6px;
+    }
+
+    .tech-stack-list,
+    .tag-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .tech-stack-list li,
+    .tag-list li {
+        border: 1px solid #eadf9b;
+        background: #ffffff;
+        padding: 6px 9px;
+        font-size: 14px;
+    }
+
+    @@media (max-width: 767.98px) {
+        .detail-meta-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="bookmark-page">
+    @Html.AntiForgeryToken()
+    <div class="bookmark-header">
+        <p class="mb-1 findyou-brand">FindYOU</p>
+        <h1 class="bookmark-title">Bookmarked Chats</h1>
+        <p class="bookmark-subtitle">Your saved public chats in one place.</p>
+    </div>
+
+    <div class="bookmark-content">
+        <div class="bookmark-toolbar">
+            <div>
+                <div class="fw-semibold">Saved Chats</div>
+                <div id="bookmarkCount" class="bookmark-count"></div>
+            </div>
+            <input id="bookmarkSearch" class="form-control bookmark-search" placeholder="Search bookmarked chats..." />
+        </div>
+
+        <div id="bookmarkGrid" class="row g-3"></div>
+        <div id="bookmarkEmpty" class="bookmark-empty d-none">No bookmarks found.</div>
+    </div>
+</div>
+
+<div class="modal fade" id="bookmarkDetailModal" tabindex="-1" aria-labelledby="bookmarkDetailModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#fff3b0;">
+                <h5 class="modal-title" id="bookmarkDetailModalTitle">chat entry details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="bookmarkDetailBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        $(function () {
+            var bookmarkData = @Html.Raw(JsonSerializer.Serialize(chatEntries));
+            var filteredData = bookmarkData.slice();
+            var categoryData = [];
+            var detailModal = new bootstrap.Modal(document.getElementById('bookmarkDetailModal'));
+
+            function htmlEncode(value) {
+                return $('<div>').text(value || '').html();
+            }
+
+            function lower(value) {
+                return (value || '').toString().toLowerCase();
+            }
+
+            function normalizeCategory(category) {
+                return {
+                    Id: category.Id || category.id,
+                    Name: category.Name || category.name || ''
+                };
+            }
+
+            function categoryNameFromChat(chat) {
+                var category = chat.Category || chat.category || {};
+
+                return textValue(
+                    chat.CategoryName ||
+                    chat.categoryName ||
+                    category.Name ||
+                    category.name
+                );
+            }
+
+            function normalizeBookmark(chat) {
+                chat.CategoryName = categoryNameFromChat(chat);
+                return chat;
+            }
+
+            function applyCategoryNames() {
+                bookmarkData.forEach(function (chat) {
+                    chat.CategoryName = categoryNameFromChat(chat);
+
+                    if (chat.CategoryName) {
+                        return;
+                    }
+
+                    var category = categoryData.find(function (item) {
+                        return String(item.Id) === String(chat.CategoryId);
+                    });
+
+                    if (category) {
+                        chat.CategoryName = category.Name;
+                    }
+                });
+            }
+
+            function textValue(value) {
+                return $.trim((value || '').toString());
+            }
+
+            bookmarkData = bookmarkData.map(normalizeBookmark);
+            filteredData = bookmarkData.slice();
+
+            function searchableText(chat) {
+                return [
+                    chat.Title,
+                    chat.CategoryName,
+                    chat.Summary,
+                    chat.Notes,
+                    chat.ChatTags,
+                    chat.ChatLink
+                ].join(' ').toLowerCase();
+            }
+
+            function shortText(value, fallback) {
+                var text = textValue(value);
+
+                if (!text) {
+                    return fallback;
+                }
+
+                return text.length > 150 ? text.substring(0, 147) + '...' : text;
+            }
+
+            function formatDate(value) {
+                var date = new Date(value);
+
+                if (Number.isNaN(date.getTime())) {
+                    return '';
+                }
+
+                return date.toLocaleDateString();
+            }
+
+            function formatCreatedAt(value) {
+                var date = new Date(value);
+
+                if (Number.isNaN(date.getTime())) {
+                    return textValue(value);
+                }
+
+                return date.toLocaleString();
+            }
+
+            function linkHtml(value) {
+                if (!value) {
+                    return '';
+                }
+
+                return '<a href="' + htmlEncode(value) + '" target="_blank" rel="noopener noreferrer">' + htmlEncode(value) + '</a>';
+            }
+
+            function removeTags(value) {
+                return textValue(value).replace(/#[^\s#]+/g, '').replace(/\s+/g, ' ').trim();
+            }
+
+            function cleanSectionText(value) {
+                return removeTags(value)
+                    .replace(/^\s*[:\-]+/, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            }
+
+            function extractBetween(text, startPattern, endPattern) {
+                var lowerText = text.toLowerCase();
+                var startMatch = lowerText.match(startPattern);
+
+                if (!startMatch) {
+                    return '';
+                }
+
+                var start = startMatch.index + startMatch[0].length;
+                var rest = text.slice(start);
+                var restLower = rest.toLowerCase();
+                var endMatch = endPattern ? restLower.match(endPattern) : null;
+
+                return endMatch ? rest.slice(0, endMatch.index) : rest;
+            }
+
+            function splitSummaryItems(value) {
+                return cleanSectionText(value)
+                    .split(/\u2705|\n|;/)
+                    .map(function (item) {
+                        return item.replace(/^\s*(features?|and)\s*/i, '').replace(/^[,.\-\s]+/, '').trim();
+                    })
+                    .filter(Boolean);
+            }
+
+            function techItems(value) {
+                var cleaned = cleanSectionText(value).replace(/^[:\-]+/, '').trim();
+
+                if (!cleaned) {
+                    return [];
+                }
+
+                var knownTech = [
+                    'ASP.NET Core MVC',
+                    '.NET 9',
+                    'C#',
+                    'Entity Framework Core',
+                    'PostgreSQL',
+                    'NeonDB',
+                    'HTML',
+                    'CSS',
+                    'Bootstrap',
+                    'Repository Pattern',
+                    'Dependency Injection',
+                    'Session Management'
+                ];
+
+                return knownTech.filter(function (tech) {
+                    return cleaned.toLowerCase().indexOf(tech.toLowerCase()) >= 0;
+                });
+            }
+
+            function tagsFromSummary(value) {
+                return textValue(value).match(/#[^\s#]+/g) || [];
+            }
+
+            function sectionHtml(title, bodyHtml) {
+                if (!bodyHtml) {
+                    return '';
+                }
+
+                return '<section class="detail-section">' +
+                    '<div class="detail-section-title">' + htmlEncode(title) + '</div>' +
+                    bodyHtml +
+                '</section>';
+            }
+
+            function paragraphHtml(value) {
+                var cleaned = cleanSectionText(value);
+                return cleaned ? '<p>' + htmlEncode(cleaned) + '</p>' : '';
+            }
+
+            function listHtml(items, className) {
+                if (!items.length) {
+                    return '';
+                }
+
+                return '<ul class="' + className + '">' + items.map(function (item) {
+                    return '<li>' + htmlEncode(item) + '</li>';
+                }).join('') + '</ul>';
+            }
+
+            function tagsListHtml(tags) {
+                var items = textValue(tags).split(/\s+/).filter(Boolean);
+                return listHtml(items, 'tag-list');
+            }
+
+            function structuredSummaryHtml(summary) {
+                var original = textValue(summary);
+
+                if (!original) {
+                    return sectionHtml('Summary', '<p class="text-muted">No summary added yet.</p>');
+                }
+
+                var purpose = extractBetween(original, /^/, /\bfeatures?\b/);
+                var features = extractBetween(original, /\bfeatures?\b/, /\btech stack\b/);
+                var techStack = extractBetween(original, /\btech stack\b/, /\bthis project helped\b/);
+                var learning = extractBetween(original, /\bthis project helped\b/, /#[^\s#]+/);
+                var tags = tagsFromSummary(original);
+                var html = '';
+
+                html += sectionHtml('Project Purpose', paragraphHtml(purpose || original));
+                html += sectionHtml('Key Features', listHtml(splitSummaryItems(features), 'detail-list'));
+                html += sectionHtml('Tech Stack', listHtml(techItems(techStack), 'tech-stack-list'));
+                html += sectionHtml('Learning Outcome', paragraphHtml(learning ? 'This project helped ' + learning : ''));
+                html += sectionHtml('Tags', listHtml(tags, 'tag-list'));
+
+                return html || sectionHtml('Summary', paragraphHtml(original));
+            }
+
+            function findChatEntry(id) {
+                return bookmarkData.find(function (chat) {
+                    return chat.Id === Number(id);
+                });
+            }
+
+            function responseMessage(xhr, fallback) {
+                if (xhr && xhr.responseJSON && xhr.responseJSON.message) {
+                    return xhr.responseJSON.message;
+                }
+
+                if (xhr && xhr.responseText) {
+                    try {
+                        var response = JSON.parse(xhr.responseText);
+                        if (response.message) {
+                            return response.message;
+                        }
+                    } catch (e) {
+                        return fallback;
+                    }
+                }
+
+                return fallback;
+            }
+
+            function payloadMessage(response, fallback) {
+                return (response && response.message) || fallback;
+            }
+
+            function isSuccessfulResponse(response) {
+                return !response || response.success !== false;
+            }
+
+            function tagsHtml(tags) {
+                var items = $.trim(tags || '').split(/\s+/).filter(Boolean);
+
+                if (!items.length) {
+                    return '<p class="bookmark-text text-muted">No tags added.</p>';
+                }
+
+                return '<div class="bookmark-tags">' + items.map(function (tag) {
+                    return '<span class="bookmark-tag">' + htmlEncode(tag) + '</span>';
+                }).join('') + '</div>';
+            }
+
+            function renderCards() {
+                var cards = filteredData.map(function (chat) {
+                    var createdAt = formatDate(chat.CreatedAt);
+                    var categoryName = lower(chat.CategoryName || 'uncategorized');
+
+                    return '<div class="col-12 col-md-6 col-xl-4">' +
+                        '<div class="card bookmark-card" data-id="' + chat.Id + '">' +
+                            '<div class="card-header">' + htmlEncode(lower(chat.Title) || 'untitled chat') + '</div>' +
+                            '<div class="card-body d-flex flex-column">' +
+                                '<div class="bookmark-corner">' +
+                                    '<span class="bookmark-corner-label">bookmark</span>' +
+                                    '<button type="button" class="bookmark-save-btn js-remove-bookmark" title="remove bookmark" aria-label="remove bookmark">&#9733;</button>' +
+                                '</div>' +
+                                '<div class="bookmark-field">' +
+                                    '<div class="bookmark-label">category</div>' +
+                                    '<div class="bookmark-text">' + htmlEncode(categoryName) + '</div>' +
+                                '</div>' +
+                                '<div class="bookmark-field">' +
+                                    '<div class="bookmark-label">summary</div>' +
+                                    '<p class="bookmark-text">' + htmlEncode(shortText(chat.Summary, 'No summary available.')) + '</p>' +
+                                '</div>' +
+                                '<div class="bookmark-field">' +
+                                    '<div class="bookmark-label">tags</div>' +
+                                    tagsHtml(chat.ChatTags) +
+                                '</div>' +
+                                (createdAt ? '<div class="bookmark-field"><div class="bookmark-label">created</div><p class="bookmark-text">' + htmlEncode(createdAt) + '</p></div>' : '') +
+                                '<div class="bookmark-actions mt-auto">' +
+                                    '<button type="button" class="btn btn-sm btn-outline-primary js-detail">details</button>' +
+                                    '<a class="btn btn-sm btn-warning text-dark" href="' + htmlEncode(chat.ChatLink) + '" target="_blank" rel="noopener noreferrer">open chat</a>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>';
+                }).join('');
+
+                $('#bookmarkGrid').html(cards);
+                $('#bookmarkGrid').toggleClass('d-none', filteredData.length === 0);
+                $('#bookmarkEmpty').toggleClass('d-none', filteredData.length !== 0);
+                $('#bookmarkCount').text(filteredData.length + ' of ' + bookmarkData.length + ' bookmarks');
+            }
+
+            function applySearch() {
+                var searchValue = $.trim($('#bookmarkSearch').val()).toLowerCase();
+                filteredData = bookmarkData.filter(function (chat) {
+                    return !searchValue || searchableText(chat).indexOf(searchValue) >= 0;
+                });
+                renderCards();
+            }
+
+            function fillDetail(chat) {
+                var detailHtml =
+                    '<div class="detail-meta-grid">' +
+                        '<div>' +
+                            '<div class="window-label">title</div>' +
+                            '<div class="window-value">' + htmlEncode(textValue(chat.Title)) + '</div>' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="window-label">category</div>' +
+                            '<div class="window-value">' + htmlEncode(textValue(chat.CategoryName) || 'Uncategorized') + '</div>' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="window-label">created at</div>' +
+                            '<div class="window-value">' + htmlEncode(formatCreatedAt(chat.CreatedAt)) + '</div>' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="window-label">entry id</div>' +
+                            '<div class="window-value">' + htmlEncode(chat.Id) + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    sectionHtml('Chat Link', '<p>' + linkHtml(chat.ChatLink) + '</p>') +
+                    structuredSummaryHtml(chat.Summary) +
+                    sectionHtml('Chat Tags', tagsListHtml(chat.ChatTags)) +
+                    sectionHtml('Notes', paragraphHtml(chat.Notes));
+
+                $('#bookmarkDetailBody').html(detailHtml);
+            }
+
+            $('#bookmarkSearch').on('input', applySearch);
+
+            $('#bookmarkGrid').on('click', '.js-detail', function () {
+                var chat = findChatEntry($(this).closest('.bookmark-card').data('id'));
+                fillDetail(chat);
+                detailModal.show();
+            });
+
+            $('#bookmarkGrid').on('click', '.js-remove-bookmark', function () {
+                var button = $(this);
+                var chat = findChatEntry(button.closest('.bookmark-card').data('id'));
+                var token = $('input[name="__RequestVerificationToken"]').val();
+
+                if (!chat) {
+                    return;
+                }
+
+                button.prop('disabled', true);
+
+                $.ajax({
+                    url: '@Url.Action("DeleteBookMark", "ChatEntry")',
+                    type: 'POST',
+                    headers: {
+                        RequestVerificationToken: token
+                    },
+                    data: {
+                        id: chat.Id
+                    },
+                    success: function (response) {
+                        if (!isSuccessfulResponse(response)) {
+                            button.prop('disabled', false);
+                            Swal.fire('error', payloadMessage(response, 'bookmark could not be removed.'), 'error');
+                            return;
+                        }
+
+                        bookmarkData = bookmarkData.filter(function (item) {
+                            return item.Id !== chat.Id;
+                        });
+                        applySearch();
+                        Swal.fire('removed', payloadMessage(response, 'bookmark has been removed.'), 'success');
+                    },
+                    error: function (xhr) {
+                        button.prop('disabled', false);
+                        var title = xhr && xhr.status === 401 ? 'unauthorized' : 'error';
+                        var icon = xhr && xhr.status === 401 ? 'warning' : 'error';
+
+                        Swal.fire(title, responseMessage(xhr, 'bookmark could not be removed.'), icon);
+                    }
+                });
+            });
+
+            $.get('@Url.Action("GetAll", "Category")')
+                .done(function (categories) {
+                    categoryData = (categories || []).map(normalizeCategory);
+                    applyCategoryNames();
+                    applySearch();
+                })
+                .fail(function () {
+                    renderCards();
+                });
+        });
+    </script>
+}

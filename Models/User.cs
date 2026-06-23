@@ -29,4 +29,8 @@ public class User
 [JsonIgnore]
     public ICollection<ChatEntry> ChatEntries { get; set; }
     = new List<ChatEntry>();
+
+[JsonIgnore]
+    public ICollection<Bookmark> Bookmarks { get; set; }
+    = new List<Bookmark>();
 }

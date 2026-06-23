@@ -2,5 +2,10 @@
 
 public interface IUserAlgoInterface
 {
-Task<List<ChatEntry>> GetRecommendedChatsAsync(int userId);
+Task<List<FeedChatDto>> GetRecommendedChatsAsync(int userId);
+
+Task<List<FeedChatDto>> GetVectorFeedAsync(
+    int userId,
+    string query
+);
 }

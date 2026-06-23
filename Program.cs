@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using FindYOU;
 using FindYOU.Repositories;
+using Npgsql;
 // using FindYOU;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,6 +20,13 @@ builder.Services.AddScoped<IAuthInterface , AuthRepository>();
 builder.Services.AddScoped<IUserAlgoInterface , UserAlgoRepository>();
 
 builder.Services.AddScoped<AITagsGeneration>();
+builder.Services.AddScoped<NpgsqlConnection>(sp =>
+{
+    var connectionString =
+        builder.Configuration.GetConnectionString("DefaultConnection");
+
+    return new NpgsqlConnection(connectionString);
+});
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(

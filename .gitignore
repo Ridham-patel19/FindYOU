@@ -19,6 +19,7 @@ obj/
 
 # Secrets
 appsettings.Development.json
+appsettings.json
 secrets.json
 
 # Publish output

@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace FindYOU;
 
@@ -36,4 +37,8 @@ public class ChatEntry
 
     [ForeignKey(nameof(UserId))]
     public User? User { get; set; }
+
+[JsonIgnore]
+    public ICollection<Bookmark> Bookmarks { get; set; }
+    = new List<Bookmark>();
 }

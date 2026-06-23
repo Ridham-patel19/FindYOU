@@ -8,7 +8,19 @@ public interface IChatEntryInterface
 
     List<ChatEntry> GetByCategory(int id , int? userid);
 
+    Task<List<ChatEntry>> GetAllBookMarkeByUser(int userId);
+
+    Task<Bookmark> GetBookMarkByUserAndChat(int chatid , int userid);
+
+    Task<bool> isBookMarked(int userid , int chatid);
+
+    int DeleteBookMark(int id);
+
     public bool IsEligible(int chatId, int userId);
+
+    int AddBookMark(int chatId , int userId);
+
+    public Task UpdateSearchVector(int chatId);
 
     void Add(ChatEntry chatEntry);
 
