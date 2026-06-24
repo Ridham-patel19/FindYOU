@@ -80,7 +80,7 @@ public class HomeController : Controller
         User result = _auth.Login(email , password);
 
 
-        System.Console.WriteLine(result.Id + result.Role);
+        // System.Console.WriteLine(result.Id + result.Role);
 
         if(result == null)
         {
