@@ -37,21 +37,40 @@ namespace MyApp.Namespace
 
     if (user == null)
         return NotFound();
-
+   
     var chats = await _algoRepo.GetRecommendedChatsAsync(userId.Value);
+    // chats.ForEach(x => System.Console.WriteLine(x.Id));
 
     var query = string.IsNullOrWhiteSpace(user.InterestTags)
         ? "General"
         : user.InterestTags;
 
+//         Console.WriteLine("Interest Tags:");
+// Console.WriteLine(user.InterestTags);
+
+// Console.WriteLine("Recommended Chats:");
+
+// foreach (var chat in chats)
+// {
+//     Console.WriteLine($"{chat.Id} - {chat.Title}");
+// }
+
     var vectorChats = await _algoRepo.GetVectorFeedAsync(userId.Value , query);
 
+System.Console.WriteLine("vectore chats");
+System.Console.WriteLine(vectorChats.Count());
+vectorChats.ForEach(x => System.Console.WriteLine(x.Id));
     chats.AddRange(vectorChats);
 
     chats = chats
         .GroupBy(x => x.Id)
         .Select(g => g.First())
         .ToList();
+
+
+System.Console.WriteLine("before search vectore");
+
+        chats.ForEach(x => System.Console.WriteLine(x.Id));
 
     return Ok(chats);
 }

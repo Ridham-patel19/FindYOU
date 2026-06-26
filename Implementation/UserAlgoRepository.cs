@@ -67,13 +67,17 @@ public class UserAlgoRepository : IUserAlgoInterface
     }).ToList();
 }
 
-   public async Task<List<FeedChatDto>> GetVectorFeedAsync(
+public async Task<List<FeedChatDto>> GetVectorFeedAsync(
     int userId,
     string query)
 {
+    var tsQuery = string.Join(" | ",
+        query.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+
     var qry = @"
 SELECT
     c.*,
+    cat.""Name"" AS ""CategoryName"",
     CASE
         WHEN b.""Id"" IS NOT NULL THEN true
         ELSE false
@@ -82,10 +86,12 @@ FROM ""ChatEntries"" c
 LEFT JOIN ""Bookmarks"" b
     ON c.""Id"" = b.""ChatEntryId""
     AND b.""UserId"" = @userId
-WHERE c.search_vector @@ plainto_tsquery('english', @query)
+LEFT JOIN ""Categories"" cat
+    ON c.""CategoryId"" = cat.""Id""
+WHERE c.search_vector @@ to_tsquery('english', @query)
 ORDER BY ts_rank(
     c.search_vector,
-    plainto_tsquery('english', @query)
+    to_tsquery('english', @query)
 ) DESC
 LIMIT 10;";
 
@@ -95,7 +101,7 @@ LIMIT 10;";
     {
         using var cmd = new NpgsqlCommand(qry, _conn);
 
-        cmd.Parameters.AddWithValue("query", query);
+        cmd.Parameters.AddWithValue("query", tsQuery);
         cmd.Parameters.AddWithValue("userId", userId);
 
         await _conn.OpenAsync();
@@ -106,41 +112,35 @@ LIMIT 10;";
         {
             chats.Add(new FeedChatDto
             {
-                Id = reader.GetInt32(
-                    reader.GetOrdinal("Id")),
+                Id = reader.GetInt32(reader.GetOrdinal("Id")),
 
-                Title = reader.GetString(
-                    reader.GetOrdinal("Title")),
+                Title = reader.GetString(reader.GetOrdinal("Title")),
 
-                Summary = reader.IsDBNull(
-                    reader.GetOrdinal("Summary"))
+                Summary = reader.IsDBNull(reader.GetOrdinal("Summary"))
                     ? null
-                    : reader.GetString(
-                        reader.GetOrdinal("Summary")),
+                    : reader.GetString(reader.GetOrdinal("Summary")),
 
-                ChatLink = reader.GetString(
-                    reader.GetOrdinal("ChatLink")),
+                ChatLink = reader.GetString(reader.GetOrdinal("ChatLink")),
 
-                ChatTags = reader.IsDBNull(
-                    reader.GetOrdinal("ChatTags"))
+                ChatTags = reader.IsDBNull(reader.GetOrdinal("ChatTags"))
                     ? null
-                    : reader.GetString(
-                        reader.GetOrdinal("ChatTags")),
+                    : reader.GetString(reader.GetOrdinal("ChatTags")),
 
-                CreatedAt = reader.GetDateTime(
-                    reader.GetOrdinal("CreatedAt")),
+                CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
 
-                CategoryId = reader.GetInt32(
-                    reader.GetOrdinal("CategoryId")),
+                CategoryId = reader.GetInt32(reader.GetOrdinal("CategoryId")),
 
-                UserId = reader.GetInt32(
-                    reader.GetOrdinal("UserId")),
+                Category = new Category
+                {
+                    Id = reader.GetInt32(reader.GetOrdinal("CategoryId")),
+                    Name = reader.GetString(reader.GetOrdinal("CategoryName"))
+                },
 
-                IsPublic = reader.GetBoolean(
-                    reader.GetOrdinal("IsPublic")),
+                UserId = reader.GetInt32(reader.GetOrdinal("UserId")),
 
-                IsBookmarked = reader.GetBoolean(
-                    reader.GetOrdinal("IsBookmarked"))
+                IsPublic = reader.GetBoolean(reader.GetOrdinal("IsPublic")),
+
+                IsBookmarked = reader.GetBoolean(reader.GetOrdinal("IsBookmarked"))
             });
         }
 
@@ -148,9 +148,7 @@ LIMIT 10;";
     }
     catch (Exception e)
     {
-        Console.WriteLine(
-            "error in feed generation with vector " + e.Message);
-
+        Console.WriteLine("error in feed generation with vector " + e.Message);
         return new List<FeedChatDto>();
     }
     finally

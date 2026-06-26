@@ -28,7 +28,8 @@ public class HomeController : Controller
             ViewBag.Error = "Error while register";
             return View();
         }
-
+         user.Email = user.Email.ToLower();
+         
         int result = _auth.Register(user);
 
         if(result == -1)
