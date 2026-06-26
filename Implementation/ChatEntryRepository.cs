@@ -146,7 +146,7 @@ System.Console.WriteLine(isPublic);
                 'english',
                 coalesce(""Title"", '') || ' ' ||
                 coalesce(""Summary"", '') || ' ' ||
-                coalesce(""Tags"", '')
+                coalesce(""ChatTags"", '')
             )
         WHERE ""Id"" = {chatId}
     ");

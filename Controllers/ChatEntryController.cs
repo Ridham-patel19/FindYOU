@@ -164,12 +164,13 @@ namespace MyApp.Namespace
 
 
                  chat.ChatTags = await _AiTags.GenerateTagsAsync(chat.Title , chat.Category.Name , chat.Summary , chat.Notes);
+                 
                 chat.UserId = id;
                 _repo.Update(chat);
                 _repo.Save();
 
-                await _repo.UpdateSearchVector(chat.Id);
-
+               
+ await _repo.UpdateSearchVector(chat.Id);
                 return RedirectToAction(nameof(Index));
             }
 
