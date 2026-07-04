@@ -1,9 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FindYOU;
 
-public class FeedChatDto
+public class UsersChatsDto
 {
  public int Id { get; set; }
 
@@ -20,7 +20,7 @@ public class FeedChatDto
 
     public bool IsPublic { get; set; } = false;
 
-    public bool IsBookmarked { get; set; }
+
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

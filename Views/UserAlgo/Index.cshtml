@@ -143,6 +143,46 @@
         opacity: 1;
     }
 
+    .like-btn {
+        border: 1px solid #eadf9b;
+        background: #ffffff;
+        color: #8a6d00;
+        min-width: 72px;
+        height: 31px;
+        padding: 0 9px;
+        font-weight: 800;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+    }
+
+    .like-btn:hover,
+    .like-btn:focus {
+        background: #fff3b0;
+    }
+
+    .like-btn.is-active {
+        background: #dc3545;
+        border-color: #dc3545;
+        color: #ffffff;
+    }
+
+    .like-btn:disabled {
+        opacity: 0.75;
+    }
+
+    .like-icon {
+        font-size: 17px;
+        line-height: 1;
+    }
+
+    .like-count {
+        min-width: 1.5ch;
+        text-align: left;
+    }
+
     .bookmark-corner {
         position: absolute;
         top: 8px;
@@ -336,6 +376,8 @@
                     ChatTags: chat.ChatTags || chat.chatTags || '',
                     CreatedAt: chat.CreatedAt || chat.createdAt || '',
                     IsBookmarked: boolValue(chat.IsBookmarked || chat.isBookmarked),
+                    IsLiked: boolValue(chat.IsLiked || chat.isLiked),
+                    LikeCount: Number(chat.LikeCount || chat.likeCount || 0),
                     CategoryName: chat.CategoryName || chat.categoryName || category.Name || category.name || ''
                 };
             }
@@ -554,6 +596,25 @@
                 }).join('') + '</div>';
             }
 
+            function likeButtonHtml(chat) {
+                var icon = chat.IsLiked ? '&#9829;' : '&#9825;';
+                var title = chat.IsLiked ? 'unlike chat' : 'like chat';
+
+                return '<button type="button" class="like-btn js-like' + (chat.IsLiked ? ' is-active' : '') + '" title="' + title + '" aria-label="' + title + '">' +
+                    '<span class="like-icon">' + icon + '</span>' +
+                    '<span class="like-count">' + htmlEncode(chat.LikeCount) + '</span>' +
+                '</button>';
+            }
+
+            function setLikeButtonState(button, chat) {
+                button.toggleClass('is-active', chat.IsLiked)
+                    .attr('title', chat.IsLiked ? 'unlike chat' : 'like chat')
+                    .attr('aria-label', chat.IsLiked ? 'unlike chat' : 'like chat');
+
+                button.find('.like-icon').html(chat.IsLiked ? '&#9829;' : '&#9825;');
+                button.find('.like-count').text(chat.LikeCount);
+            }
+
             function renderCards() {
                 var cards = filteredData.map(function (chat) {
                     var createdAt = formatDate(chat.CreatedAt);
@@ -582,6 +643,7 @@
                                 '</div>' +
                                 '<div class="recommend-actions mt-auto">' +
                                     '<button type="button" class="btn btn-sm btn-outline-primary me-1 js-detail">details</button>' +
+                                    likeButtonHtml(chat) +
                                     '<a class="btn btn-sm btn-warning text-dark" href="' + htmlEncode(chat.ChatLink) + '" target="_blank" rel="noopener noreferrer">open chat</a>' +
                                 '</div>' +
                             '</div>' +
@@ -637,6 +699,46 @@
                 var chat = findChatEntry($(this).closest('.recommend-card').data('id'));
                 fillDetail(chat);
                 detailModal.show();
+            });
+
+            $('#recommendGrid').on('click', '.js-like', function () {
+                var button = $(this);
+                var chat = findChatEntry(button.closest('.recommend-card').data('id'));
+
+                if (!chat || button.prop('disabled')) {
+                    return;
+                }
+
+                var wasLiked = chat.IsLiked;
+                var previousCount = chat.LikeCount;
+                var url = wasLiked
+                    ? '@Url.Action("DeleteLike", "Like")'
+                    : '@Url.Action("AddLike", "Like")';
+
+                chat.IsLiked = !wasLiked;
+                chat.LikeCount = Math.max(0, previousCount + (wasLiked ? -1 : 1));
+                button.prop('disabled', true);
+                setLikeButtonState(button, chat);
+
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    data: {
+                        chatId: chat.Id
+                    },
+                    success: function () {
+                        setLikeButtonState(button, chat);
+                    },
+                    error: function (xhr) {
+                        chat.IsLiked = wasLiked;
+                        chat.LikeCount = previousCount;
+                        setLikeButtonState(button, chat);
+                        Swal.fire('error', responseMessage(xhr, 'like could not be updated.'), 'error');
+                    },
+                    complete: function () {
+                        button.prop('disabled', false);
+                    }
+                });
             });
 
             $('#recommendGrid').on('click', '.js-bookmark', function () {

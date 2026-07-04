@@ -18,6 +18,7 @@ builder.Services.AddScoped<IUserInterface , UserRepository>();
 builder.Services.AddScoped<IAuthInterface , AuthRepository>();
 
 builder.Services.AddScoped<IUserAlgoInterface , UserAlgoRepository>();
+builder.Services.AddScoped <ILikeInterface , LikeRepository>();
 
 builder.Services.AddScoped<AITagsGeneration>();
 builder.Services.AddScoped<NpgsqlConnection>(sp =>

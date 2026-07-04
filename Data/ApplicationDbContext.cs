@@ -20,10 +20,28 @@ public class ApplicationDbContext : DbContext
 
            public DbSet<Bookmark> Bookmarks { get; set; }
 
+           public DbSet<Like> Likes { get; set; }
+
 
            protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
     base.OnModelCreating(modelBuilder);
+
+    modelBuilder.Entity<Like>()
+    .HasOne(l => l.User)
+    .WithMany(u => u.Likes)
+    .HasForeignKey(l => l.UserId)
+    .OnDelete(DeleteBehavior.Cascade);
+
+modelBuilder.Entity<Like>()
+    .HasOne(l => l.ChatEntry)
+    .WithMany(c => c.Likes)
+    .HasForeignKey(l => l.ChatEntryId)
+    .OnDelete(DeleteBehavior.Cascade);
+
+    modelBuilder.Entity<Like>()
+    .HasIndex(l => new { l.UserId, l.ChatEntryId })
+    .IsUnique();
 
     modelBuilder.Entity<Bookmark>()
         .HasOne(b => b.User)
