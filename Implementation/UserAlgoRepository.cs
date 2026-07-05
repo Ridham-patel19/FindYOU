@@ -18,13 +18,12 @@ public class UserAlgoRepository : IUserAlgoInterface
         _conn = conn;
     }
 
-    public async Task<List<FeedChatDto>> GetRecommendedChatsAsync(int userId)
+public async Task<List<FeedChatDto>> GetRecommendedChatsAsync(int userId)
 {
     var user = await _context.Users
         .FirstOrDefaultAsync(u => u.Id == userId);
 
-    if (user == null ||
-        string.IsNullOrWhiteSpace(user.InterestTags))
+    if (user == null || string.IsNullOrWhiteSpace(user.InterestTags))
     {
         return new List<FeedChatDto>();
     }
@@ -34,10 +33,27 @@ public class UserAlgoRepository : IUserAlgoInterface
         .Select(tag => tag.ToLower())
         .ToList();
 
+    // User's bookmarked chats
     var bookmarkedIds = await _context.Bookmarks
         .Where(b => b.UserId == userId)
         .Select(b => b.ChatEntryId)
         .ToListAsync();
+
+    // User's liked chats
+    var likedIds = await _context.Likes
+        .Where(l => l.UserId == userId)
+        .Select(l => l.ChatEntryId)
+        .ToListAsync();
+
+    // Like count for every chat
+    var likeCounts = await _context.Likes
+        .GroupBy(l => l.ChatEntryId)
+        .Select(g => new
+        {
+            ChatId = g.Key,
+            Count = g.Count()
+        })
+        .ToDictionaryAsync(x => x.ChatId, x => x.Count);
 
     var chats = await _context.ChatEntries
         .Include(c => c.Category)
@@ -62,8 +78,11 @@ public class UserAlgoRepository : IUserAlgoInterface
         ChatTags = c.ChatTags,
         UserId = c.UserId,
 
-        IsBookmarked =
-            bookmarkedIds.Contains(c.Id)
+        IsBookmarked = bookmarkedIds.Contains(c.Id),
+        IsLiked = likedIds.Contains(c.Id),
+        LikeCount = likeCounts.TryGetValue(c.Id, out var count)
+            ? count
+            : 0
     }).ToList();
 }
 
