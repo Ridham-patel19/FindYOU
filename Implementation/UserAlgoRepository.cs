@@ -78,6 +78,7 @@ public class UserAlgoRepository : IUserAlgoInterface
     var qry = @"
 SELECT
     c.*,
+
     CASE
         WHEN b.""Id"" IS NOT NULL THEN true
         ELSE false
@@ -110,7 +111,7 @@ WHERE c.search_vector @@ to_tsquery('english', @query)
 
 ORDER BY ts_rank(
     c.search_vector,
-    to_tsquery('english', @query)
+    plainto_tsquery('english', @query)
 ) DESC
 
 LIMIT 10;";
@@ -132,31 +133,38 @@ LIMIT 10;";
         {
             chats.Add(new FeedChatDto
             {
-                Id = reader.GetInt32(reader.GetOrdinal("Id")),
+                Id = reader.GetInt32(
+                    reader.GetOrdinal("Id")),
 
-                Title = reader.GetString(reader.GetOrdinal("Title")),
+                Title = reader.GetString(
+                    reader.GetOrdinal("Title")),
 
-                Summary = reader.IsDBNull(reader.GetOrdinal("Summary"))
+                Summary = reader.IsDBNull(
+                    reader.GetOrdinal("Summary"))
                     ? null
-                    : reader.GetString(reader.GetOrdinal("Summary")),
+                    : reader.GetString(
+                        reader.GetOrdinal("Summary")),
 
-                ChatLink = reader.GetString(reader.GetOrdinal("ChatLink")),
+                ChatLink = reader.GetString(
+                    reader.GetOrdinal("ChatLink")),
 
-                ChatTags = reader.IsDBNull(reader.GetOrdinal("ChatTags"))
+                ChatTags = reader.IsDBNull(
+                    reader.GetOrdinal("ChatTags"))
                     ? null
-                    : reader.GetString(reader.GetOrdinal("ChatTags")),
+                    : reader.GetString(
+                        reader.GetOrdinal("ChatTags")),
 
-                CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
+                CreatedAt = reader.GetDateTime(
+                    reader.GetOrdinal("CreatedAt")),
 
-                CategoryId = reader.GetInt32(reader.GetOrdinal("CategoryId")),
+                CategoryId = reader.GetInt32(
+                    reader.GetOrdinal("CategoryId")),
 
-                Category = new Category
-                {
-                    Id = reader.GetInt32(reader.GetOrdinal("CategoryId")),
-                    Name = reader.GetString(reader.GetOrdinal("CategoryName"))
-                },
+                UserId = reader.GetInt32(
+                    reader.GetOrdinal("UserId")),
 
-                UserId = reader.GetInt32(reader.GetOrdinal("UserId")),
+                IsPublic = reader.GetBoolean(
+                    reader.GetOrdinal("IsPublic")),
 
                 IsBookmarked = reader.GetBoolean(
                     reader.GetOrdinal("IsBookmarked")),
@@ -173,7 +181,9 @@ LIMIT 10;";
     }
     catch (Exception e)
     {
-        Console.WriteLine("error in feed generation with vector " + e.Message);
+        Console.WriteLine(
+            "error in feed generation with vector " + e.Message);
+
         return new List<FeedChatDto>();
     }
     finally
