@@ -26,7 +26,7 @@ namespace MyApp.Namespace
             return View();
         }
         // GET: UserAlgoController
-    public async Task<IActionResult> GetUserRecommendationBasic()
+   public async Task<IActionResult> GetUserRecommendationBasic()
 {
     var userId = HttpContext.Session.GetInt32("Userid");
 
@@ -38,34 +38,44 @@ namespace MyApp.Namespace
     if (user == null)
         return NotFound();
    
+
+    // Basic recommendations
     var chats = await _algoRepo.GetRecommendedChatsAsync(userId.Value);
     // chats.ForEach(x => System.Console.WriteLine(x.Id));
 
+    // Vector recommendations (contains LikeCount, IsLiked, IsBookmarked)
     var query = string.IsNullOrWhiteSpace(user.InterestTags)
         ? "General"
         : user.InterestTags;
 
-//         Console.WriteLine("Interest Tags:");
-// Console.WriteLine(user.InterestTags);
+    var vectorChats = await _algoRepo.GetVectorFeedAsync(userId.Value, query);
+Console.WriteLine($"Vector Chat Count = {vectorChats.Count}");
+    foreach (var item in vectorChats)
+{
+       System.Console.WriteLine(item.LikeCount);
+}
 
-// Console.WriteLine("Recommended Chats:");
+    // Update basic chats with values from vector feed if they exist
+    foreach (var chat in chats)
+    {
+        var vectorChat = vectorChats.FirstOrDefault(x => x.Id == chat.Id);
 
-// foreach (var chat in chats)
-// {
-//     Console.WriteLine($"{chat.Id} - {chat.Title}");
-// }
+        if (vectorChat != null)
+        {
+            chat.IsBookmarked = vectorChat.IsBookmarked;
+            chat.IsLiked = vectorChat.IsLiked;
+            chat.LikeCount = vectorChat.LikeCount;
+        }
+    }
 
-    var vectorChats = await _algoRepo.GetVectorFeedAsync(userId.Value , query);
-
-System.Console.WriteLine("vectore chats");
-System.Console.WriteLine(vectorChats.Count());
-vectorChats.ForEach(x => System.Console.WriteLine(x.Id));
-    chats.AddRange(vectorChats);
-
-    chats = chats
-        .GroupBy(x => x.Id)
-        .Select(g => g.First())
-        .ToList();
+    // Add chats that exist only in vector feed
+    foreach (var vectorChat in vectorChats)
+    {
+        if (!chats.Any(x => x.Id == vectorChat.Id))
+        {
+            chats.Add(vectorChat);
+        }
+    }
 
 
 System.Console.WriteLine("before search vectore");
@@ -74,5 +84,5 @@ System.Console.WriteLine("before search vectore");
 
     return Ok(chats);
 }
-    }
+}
 }

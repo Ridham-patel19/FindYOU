@@ -41,4 +41,7 @@ public class ChatEntry
 [JsonIgnore]
     public ICollection<Bookmark> Bookmarks { get; set; }
     = new List<Bookmark>();
+
+    [JsonIgnore]
+    public ICollection<Like> Likes { get; set; } = new List<Like>();
 }

@@ -67,32 +67,52 @@ public class UserAlgoRepository : IUserAlgoInterface
     }).ToList();
 }
 
-public async Task<List<FeedChatDto>> GetVectorFeedAsync(
+  public async Task<List<FeedChatDto>> GetVectorFeedAsync(
     int userId,
     string query)
 {
+
     var tsQuery = string.Join(" | ",
-        query.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    query.Split(' ', StringSplitOptions.RemoveEmptyEntries));
 
     var qry = @"
 SELECT
     c.*,
-    cat.""Name"" AS ""CategoryName"",
     CASE
         WHEN b.""Id"" IS NOT NULL THEN true
         ELSE false
-    END AS ""IsBookmarked""
+    END AS ""IsBookmarked"",
+
+    CASE
+        WHEN EXISTS (
+            SELECT 1
+            FROM ""Likes"" l
+            WHERE l.""ChatEntryId"" = c.""Id""
+              AND l.""UserId"" = @userId
+        )
+        THEN true
+        ELSE false
+    END AS ""IsLiked"",
+
+    (
+        SELECT COUNT(*)
+        FROM ""Likes"" l
+        WHERE l.""ChatEntryId"" = c.""Id""
+    ) AS ""LikeCount""
+
 FROM ""ChatEntries"" c
+
 LEFT JOIN ""Bookmarks"" b
     ON c.""Id"" = b.""ChatEntryId""
     AND b.""UserId"" = @userId
-LEFT JOIN ""Categories"" cat
-    ON c.""CategoryId"" = cat.""Id""
+
 WHERE c.search_vector @@ to_tsquery('english', @query)
+
 ORDER BY ts_rank(
     c.search_vector,
     to_tsquery('english', @query)
 ) DESC
+
 LIMIT 10;";
 
     var chats = new List<FeedChatDto>();
@@ -138,9 +158,14 @@ LIMIT 10;";
 
                 UserId = reader.GetInt32(reader.GetOrdinal("UserId")),
 
-                IsPublic = reader.GetBoolean(reader.GetOrdinal("IsPublic")),
+                IsBookmarked = reader.GetBoolean(
+                    reader.GetOrdinal("IsBookmarked")),
 
-                IsBookmarked = reader.GetBoolean(reader.GetOrdinal("IsBookmarked"))
+                IsLiked = reader.GetBoolean(
+                    reader.GetOrdinal("IsLiked")),
+
+                LikeCount = reader.GetInt32(
+                    reader.GetOrdinal("LikeCount"))
             });
         }
 
