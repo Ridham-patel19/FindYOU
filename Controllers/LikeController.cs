@@ -38,6 +38,8 @@ int userid = (int)UserId;
 
 bool isLiked = await _likeRepo.HasUserLikedChatAsync(chatId , userid);
 
+System.Console.WriteLine(isLiked);
+
 if(isLiked)
             {
                 return BadRequest(new
