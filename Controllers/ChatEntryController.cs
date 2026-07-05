@@ -118,6 +118,12 @@ namespace MyApp.Namespace
 
 
                  chat.ChatTags = await _AiTags.GenerateTagsAsync(chat.Title , chat.Category.Name , chat.Summary , chat.Notes);
+
+if (string.IsNullOrWhiteSpace(chat.ChatTags))
+{
+    chat.ChatTags = $"{chat.Title} {chat.Notes}";
+}
+
                 chat.UserId = id;
                 _repo.Add(chat);
                 _repo.Save();
@@ -164,6 +170,11 @@ namespace MyApp.Namespace
 
 
                  chat.ChatTags = await _AiTags.GenerateTagsAsync(chat.Title , chat.Category.Name , chat.Summary , chat.Notes);
+
+                if (string.IsNullOrWhiteSpace(chat.ChatTags))
+{
+    chat.ChatTags = $"{chat.Title} {chat.Notes}";
+}
                 chat.UserId = id;
                 _repo.Update(chat);
                 _repo.Save();
