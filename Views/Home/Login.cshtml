@@ -35,7 +35,8 @@
     }
 
     .btn,
-    .form-control {
+    .form-control,
+    .modal-content {
         border-radius: 0 !important;
     }
 
@@ -46,6 +47,21 @@
     }
 
     .register-link:hover {
+        color: #6f5700;
+        text-decoration: underline;
+    }
+
+    .forgot-link {
+        background: transparent;
+        border: 0;
+        color: #8a6d00;
+        font-weight: 600;
+        padding: 0;
+        text-decoration: none;
+    }
+
+    .forgot-link:hover,
+    .forgot-link:focus {
         color: #6f5700;
         text-decoration: underline;
     }
@@ -73,6 +89,12 @@
                 <input type="password" id="password" name="password" class="form-control" placeholder="Enter password" required />
             </div>
 
+            <div class="text-end mb-3">
+                <button type="button" class="forgot-link" data-bs-toggle="modal" data-bs-target="#forgotPasswordModal">
+                    Forgot password?
+                </button>
+            </div>
+
             <button type="submit" class="btn btn-warning text-dark w-100">Login</button>
         </form>
 
@@ -82,3 +104,86 @@
         </p>
     </div>
 </div>
+
+<div class="modal fade" id="forgotPasswordModal" tabindex="-1" aria-labelledby="forgotPasswordModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="forgotPasswordForm">
+                <div class="modal-header" style="background:#fff3b0;">
+                    <h5 class="modal-title" id="forgotPasswordModalTitle">Reset Password</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="resetEmail" class="form-label">Email</label>
+                        <input type="email" id="resetEmail" class="form-control" placeholder="Enter your account email" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="resetNewPassword" class="form-label">New Password</label>
+                        <input type="password" id="resetNewPassword" class="form-control" placeholder="Enter new password" required />
+                    </div>
+                    <div class="mb-0">
+                        <label for="resetConfirmPassword" class="form-label">Confirm Password</label>
+                        <input type="password" id="resetConfirmPassword" class="form-control" placeholder="Confirm new password" required />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning text-dark">Reset Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        $(function () {
+            var forgotPasswordModal = new bootstrap.Modal(document.getElementById('forgotPasswordModal'));
+
+            function responseMessage(xhr, fallback) {
+                if (xhr && xhr.responseJSON && xhr.responseJSON.message) {
+                    return xhr.responseJSON.message;
+                }
+
+                return fallback;
+            }
+
+            $('#forgotPasswordForm').on('submit', function (event) {
+                event.preventDefault();
+
+                var email = $.trim($('#resetEmail').val());
+                var newPassword = $('#resetNewPassword').val();
+                var confirmPassword = $('#resetConfirmPassword').val();
+
+                if (!email || !newPassword || !confirmPassword) {
+                    Swal.fire('Required', 'Email and password are required.', 'info');
+                    return;
+                }
+
+                if (newPassword !== confirmPassword) {
+                    Swal.fire('Password mismatch', 'New password and confirm password must match.', 'info');
+                    return;
+                }
+
+                $.ajax({
+                    url: '@Url.Action("ResetPassword", "User")',
+                    type: 'POST',
+                    data: {
+                        email: email,
+                        newPassword: newPassword
+                    },
+                    success: function (response) {
+                        forgotPasswordModal.hide();
+                        $('#forgotPasswordForm')[0].reset();
+                        Swal.fire('Updated', responseMessage({ responseJSON: response }, 'Password reset successfully.'), 'success');
+                    },
+                    error: function (xhr) {
+                        Swal.fire('Error', responseMessage(xhr, 'Password could not be reset.'), 'error');
+                    }
+                });
+            });
+        });
+    </script>
+}

@@ -8,4 +8,5 @@ public interface IUserInterface
     Task<User?> GetByIdAsync(int id);
     Task<User?> UpdateAsync(int id, User user);
     Task<bool> DeleteAsync(int id);
+    Task<bool> ResetPasswordAsync(string email, string newPassword);
 }

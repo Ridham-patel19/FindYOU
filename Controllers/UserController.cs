@@ -141,6 +141,31 @@ namespace MyApp.Namespace
             }
         }
 
+        [HttpPost]
+        public async Task<IActionResult> ResetPassword(string email, string newPassword)
+        {
+            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(newPassword))
+            {
+                return BadRequest(new { message = "Email and new password are required." });
+            }
+
+            try
+            {
+                bool updated = await _repo.ResetPasswordAsync(email, newPassword);
+
+                if (!updated)
+                {
+                    return NotFound(new { message = "User with this email was not found." });
+                }
+
+                return Ok(new { message = "Password reset successfully." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while resetting password.", error = ex.Message });
+            }
+        }
+
         public int CheckAuth()
         {
             string? result = HttpContext.Session.GetString("Role");

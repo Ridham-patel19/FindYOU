@@ -78,7 +78,7 @@ public class HomeController : Controller
     [HttpPost]
     public IActionResult Login(string email , string password)
     {
-        User result = _auth.Login(email , password);
+        User? result = _auth.Login(email , password);
 
 
         // System.Console.WriteLine(result.Id + result.Role);

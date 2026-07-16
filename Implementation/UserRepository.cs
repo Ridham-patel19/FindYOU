@@ -49,4 +49,19 @@ public class UserRepository : IUserInterface
         await _context.SaveChangesAsync();
         return true;
     }
+
+    public async Task<bool> ResetPasswordAsync(string email, string newPassword)
+    {
+        email = email.Trim().ToLower();
+        var user = await _context.Users.FirstOrDefaultAsync(x => x.Email == email);
+
+        if (user == null)
+            return false;
+
+        user.password = BCrypt.Net.BCrypt.HashPassword(newPassword);
+
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
 }

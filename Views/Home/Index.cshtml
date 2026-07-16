@@ -3,100 +3,545 @@
 }
 
 <style>
-    .home-page {
+    .landing-page {
         background: #fff9db;
         border: 1px solid #f1e6a8;
-        padding: 24px;
         color: #222;
+        overflow: hidden;
     }
 
-    .home-hero {
+    .landing-section {
         background: #ffffff;
-        border: 1px solid #eadf9b;
+        border-bottom: 1px solid #eadf9b;
         padding: 28px;
     }
 
-    .home-title {
-        font-size: 36px;
-        font-weight: 700;
+    .landing-section:last-child {
+        border-bottom: 0;
+    }
+
+    .landing-eyebrow {
+        color: #8a6d00;
+        font-weight: 800;
         margin-bottom: 8px;
     }
 
-    .home-subtitle {
+    .landing-title {
+        font-size: 40px;
+        font-weight: 800;
+        line-height: 1.12;
+        letter-spacing: 0;
+        margin-bottom: 12px;
+        max-width: 820px;
+    }
+
+    .landing-subtitle {
         color: #555;
         font-size: 18px;
-        max-width: 680px;
-        margin-bottom: 22px;
+        line-height: 1.55;
+        max-width: 820px;
+        margin-bottom: 18px;
     }
 
-    .home-info {
+    .landing-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 18px;
+    }
+
+    .hero-panel {
         background: #fffdf0;
         border: 1px solid #eadf9b;
-        padding: 14px;
+        padding: 18px;
         height: 100%;
+        position: relative;
+        overflow: hidden;
+        animation: softRise 520ms ease-out both;
     }
 
-    .home-image {
+    .hero-panel::before {
+        content: "";
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        width: 92px;
+        height: 92px;
+        border: 1px solid #eadf9b;
+        background: #fff3b0;
+        opacity: .55;
+        animation: floatSquare 5s ease-in-out infinite;
+    }
+
+    .hero-panel-title {
+        color: #8a6d00;
+        font-size: 20px;
+        font-weight: 800;
+        margin-bottom: 14px;
+    }
+
+    .chat-stack {
+        display: grid;
+        gap: 10px;
+        position: relative;
+        z-index: 1;
+    }
+
+    .chat-card {
+        background: #ffffff;
+        border: 1px solid #eadf9b;
+        padding: 12px;
+        transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+        animation: softRise 520ms ease-out both;
+    }
+
+    .chat-card:nth-child(2) {
+        animation-delay: 80ms;
+    }
+
+    .chat-card:nth-child(3) {
+        animation-delay: 160ms;
+    }
+
+    .chat-card:hover,
+    .info-card:hover,
+    .flow-item:hover {
+        background: #fffef6;
+        border-color: #d9c86f;
+        transform: translateY(-3px);
+    }
+
+    .chat-card strong {
+        display: block;
+        font-size: 15px;
+        margin-bottom: 4px;
+    }
+
+    .chat-card span {
+        color: #666;
+        display: block;
+        font-size: 14px;
+        line-height: 1.45;
+    }
+
+    .section-title {
+        font-size: 25px;
+        font-weight: 800;
+        margin-bottom: 8px;
+    }
+
+    .section-copy {
+        color: #555;
+        font-size: 16px;
+        line-height: 1.55;
+        max-width: 850px;
+        margin-bottom: 0;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 18px;
+    }
+
+    .info-card {
+        background: #fffdf0;
+        border: 1px solid #eadf9b;
+        padding: 15px;
+        min-height: 132px;
+        transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .info-card h3 {
+        color: #8a6d00;
+        font-size: 18px;
+        font-weight: 800;
+        margin-bottom: 8px;
+    }
+
+    .info-card p {
+        color: #666;
+        line-height: 1.55;
+        margin-bottom: 0;
+    }
+
+    .flow-list {
+        display: grid;
+        gap: 12px;
+        margin-top: 18px;
+    }
+
+    .flow-item {
+        background: #fffdf0;
+        border: 1px solid #eadf9b;
+        display: grid;
+        grid-template-columns: 46px 1fr;
+        gap: 14px;
+        padding: 14px;
+        transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .flow-number {
         background: #fff3b0;
         border: 1px solid #eadf9b;
-        min-height: 220px;
+        color: #8a6d00;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #8a6d00;
-        font-size: 64px;
-        font-weight: 700;
+        font-weight: 800;
+        height: 42px;
+        width: 42px;
     }
 
-    .findyou-brand {
-        color: #8a6d00;
+    .flow-item h3 {
+        font-size: 18px;
+        font-weight: 800;
+        margin-bottom: 4px;
+    }
+
+    .flow-item p {
+        color: #666;
+        line-height: 1.55;
+        margin-bottom: 0;
+    }
+
+    .audience-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .audience-pill {
+        background: #fffdf0;
+        border: 1px solid #eadf9b;
+        color: #6f5700;
         font-weight: 700;
+        padding: 9px 12px;
+    }
+
+    .use-box {
+        background: #fff3b0;
+        border: 1px solid #eadf9b;
+        padding: 20px;
+    }
+
+    .use-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 18px;
+    }
+
+    .use-card {
+        background: #ffffff;
+        border: 1px solid #eadf9b;
+        color: #333;
+        padding: 15px;
+        min-height: 120px;
+        animation: softRise 520ms ease-out both;
+    }
+
+    .use-card:nth-child(2) {
+        animation-delay: 80ms;
+    }
+
+    .use-card:nth-child(3) {
+        animation-delay: 160ms;
+    }
+
+    .use-card h3 {
+        color: #8a6d00;
+        font-size: 17px;
+        font-weight: 800;
+        margin-bottom: 7px;
+    }
+
+    .use-card p {
+        color: #666;
+        line-height: 1.5;
+        margin-bottom: 0;
+    }
+
+    .landing-footer {
+        background: #ffffff;
+        border: 1px solid #eadf9b;
+        padding: 18px;
+    }
+
+    .contact-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 12px;
+    }
+
+    .contact-links a {
+        color: #8a6d00;
+        font-weight: 800;
+        text-decoration: none;
+    }
+
+    .contact-links a:hover,
+    .contact-links a:focus {
+        color: #6f5700;
+        text-decoration: underline;
     }
 
     .btn {
         border-radius: 0 !important;
+        font-weight: 700;
+        transition: transform 150ms ease, box-shadow 150ms ease;
+    }
+
+    .btn:hover,
+    .btn:focus {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 0 rgba(138, 109, 0, .12);
+    }
+
+    @@keyframes softRise {
+        from {
+            opacity: 0;
+            transform: translateY(14px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@keyframes floatSquare {
+        0%,
+        100% {
+            transform: translateY(0) rotate(0deg);
+        }
+
+        50% {
+            transform: translateY(10px) rotate(4deg);
+        }
+    }
+
+    @@media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation: none !important;
+            transition: none !important;
+        }
+    }
+
+    @@media (max-width: 991.98px) {
+        .landing-title {
+            font-size: 36px;
+        }
+
+        .info-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .use-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @@media (max-width: 575.98px) {
+        .landing-section {
+            padding: 18px;
+        }
+
+        .landing-title {
+            font-size: 30px;
+        }
+
+        .landing-subtitle {
+            font-size: 17px;
+        }
+
+        .info-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .flow-item {
+            grid-template-columns: 1fr;
+        }
     }
 </style>
 
-<div class="home-page">
-    <div class="home-hero">
+<div class="landing-page">
+    <section class="landing-section">
         <div class="row align-items-center g-4">
             <div class="col-lg-7">
-                <p class="mb-1 findyou-brand">FindYOU</p>
-                <h1 class="home-title">FindYOU</h1>
-                <p class="home-subtitle">
-                    A simple office system to organize categories and keep useful chat entries in one readable place.
+                <p class="landing-eyebrow">FindYOU</p>
+                <h1 class="landing-title">Manage your AI chats. Share the useful ones.</h1>
+                <p class="landing-subtitle">
+                    FindYOU helps you save, organize, search, and reuse your own AI conversations from ChatGPT,
+                    Gemini, Claude, and more. Keep private chats for yourself or share helpful conversations with others.
                 </p>
-                <div class="d-flex flex-wrap gap-2">
-                    <a asp-controller="Home" asp-action="Login" class="btn btn-warning text-dark">Login</a>
-                    <a asp-controller="Home" asp-action="Register" class="btn btn-outline-warning text-dark">Register</a>
-                    <a asp-controller="ChatEntry" asp-action="Index" class="btn btn-outline-secondary">View Chat Entries</a>
+                <div class="landing-actions">
+                    <a asp-controller="Home" asp-action="Register" class="btn btn-warning text-dark">Create Account</a>
+                    <a asp-controller="Home" asp-action="Login" class="btn btn-outline-warning text-dark">Login</a>
+                    <a asp-controller="UserAlgo" asp-action="Index" class="btn btn-outline-secondary">Explore Feed</a>
                 </div>
+                <p class="section-copy">
+                    Use it as your personal chat manager, your AI knowledge library, and a community space where useful
+                    conversations can help more people.
+                </p>
             </div>
             <div class="col-lg-5">
-                <div class="home-image">FY</div>
+                <div class="hero-panel">
+                    <h2 class="hero-panel-title">What FindYOU helps you keep</h2>
+                    <div class="chat-stack">
+                        <div class="chat-card">
+                            <strong>Programming solution</strong>
+                            <span>Saved with summary, tags, notes, category, and original AI chat link.</span>
+                        </div>
+                        <div class="chat-card">
+                            <strong>Study explanation</strong>
+                            <span>Organized so you can search it again weeks or months later.</span>
+                        </div>
+                        <div class="chat-card">
+                            <strong>Public community chat</strong>
+                            <span>Shared for others to like, bookmark, and learn from.</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
+    </section>
 
-        <div class="row g-3 mt-3">
-            <div class="col-md-4">
-                <div class="home-info">
-                    <h5>Categories</h5>
-                    <p class="mb-0 text-muted">Group saved chat records by purpose or topic.</p>
+    <section class="landing-section">
+        <h2 class="section-title">The Problem</h2>
+        <p class="section-copy">
+            AI often gives one great explanation, plan, solution, or reference that you know you will need again.
+            Later, finding that exact conversation becomes frustrating because links are scattered across Notes, WhatsApp,
+            Notion, browser bookmarks, and random text files.
+        </p>
+    </section>
+
+    <section class="landing-section">
+        <h2 class="section-title">What You Can Do</h2>
+        <p class="section-copy">
+            FindYOU gives every important AI conversation a proper home, with enough context to make it easy to find and reuse later.
+        </p>
+        <div class="info-grid">
+            <div class="info-card">
+                <h3>Save Chat Links</h3>
+                <p>Store AI chat links from platforms like ChatGPT, Gemini, Claude, and more.</p>
+            </div>
+            <div class="info-card">
+                <h3>Add Context</h3>
+                <p>Add your own title, summary, notes, and tags so every saved chat is easy to understand.</p>
+            </div>
+            <div class="info-card">
+                <h3>Create Categories</h3>
+                <p>Group conversations by topic, project, subject, skill, or any structure that fits your workflow.</p>
+            </div>
+            <div class="info-card">
+                <h3>Search Faster</h3>
+                <p>Find conversations using keywords, tags, and categories instead of digging through old links.</p>
+            </div>
+            <div class="info-card">
+                <h3>Private Or Public</h3>
+                <p>Keep personal conversations private or make useful conversations public for others to discover.</p>
+            </div>
+            <div class="info-card">
+                <h3>Bookmark And Like</h3>
+                <p>Bookmark useful public chats and like conversations that helped you.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="landing-section">
+        <h2 class="section-title">How It Works</h2>
+        <div class="flow-list">
+            <div class="flow-item">
+                <div class="flow-number">1</div>
+                <div>
+                    <h3>Save the AI conversation</h3>
+                    <p>Paste the chat link and add a title, summary, notes, category, and tags.</p>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="home-info">
-                    <h5>Chat Entries</h5>
-                    <p class="mb-0 text-muted">Store titles, links, summaries and notes for quick access.</p>
+            <div class="flow-item">
+                <div class="flow-number">2</div>
+                <div>
+                    <h3>Choose visibility</h3>
+                    <p>Keep it private for your own knowledge base or publish it to the community feed.</p>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="home-info">
-                    <h5>Session Login</h5>
-                    <p class="mb-0 text-muted">Use login to access protected management screens.</p>
+            <div class="flow-item">
+                <div class="flow-number">3</div>
+                <div>
+                    <h3>Search and revisit</h3>
+                    <p>Use keywords, categories, and tags to quickly return to useful conversations when you need them.</p>
+                </div>
+            </div>
+            <div class="flow-item">
+                <div class="flow-number">4</div>
+                <div>
+                    <h3>Learn from others</h3>
+                    <p>Explore public conversations, bookmark useful finds, and like chats that deserve more visibility.</p>
                 </div>
             </div>
         </div>
-    </div>
+    </section>
+
+    <section class="landing-section">
+        <h2 class="section-title">Made For Everyone Who Uses AI</h2>
+        <p class="section-copy">
+            Whether you are studying, coding, designing, researching, teaching, marketing, planning, or running a business,
+            FindYOU helps you use AI conversations well instead of losing them after one session.
+        </p>
+        <div class="audience-list">
+            <span class="audience-pill">Students</span>
+            <span class="audience-pill">Developers</span>
+            <span class="audience-pill">Designers</span>
+            <span class="audience-pill">Researchers</span>
+            <span class="audience-pill">Teachers</span>
+            <span class="audience-pill">Marketers</span>
+            <span class="audience-pill">Doctors</span>
+            <span class="audience-pill">Business Professionals</span>
+            <span class="audience-pill">AI Power Users</span>
+        </div>
+    </section>
+
+    <section class="landing-section">
+        <div class="use-box">
+            <h2 class="section-title">Use FindYOU For Your Own Chats</h2>
+            <p class="section-copy">
+                Build a clean library of the AI conversations that matter to you. Save private chats for personal work,
+                publish useful ones for others, and revisit any conversation when you need the idea again.
+            </p>
+            <div class="use-grid">
+                <div class="use-card">
+                    <h3>Manage Your Chats</h3>
+                    <p>Keep important AI answers organized by title, notes, tags, category, and original link.</p>
+                </div>
+                <div class="use-card">
+                    <h3>Share With Others</h3>
+                    <p>Make helpful conversations public so other users can discover, like, and bookmark them.</p>
+                </div>
+                <div class="use-card">
+                    <h3>Use AI Better</h3>
+                    <p>Turn daily AI conversations into a searchable knowledge base for learning and work.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="landing-section">
+        <div class="landing-footer">
+            <p class="landing-eyebrow">Contact</p>
+            <h2 class="section-title">Contact For FindYOU</h2>
+            <p class="section-copy">
+                Reach out for suggestions, questions, collaboration, or anything related to FindYOU.
+            </p>
+            <div class="contact-links">
+                <a href="mailto:ridhamp278@gmail.com">ridhamp278@gmail.com</a>
+                <a href="https://www.linkedin.com/in/ridham19/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+            </div>
+        </div>
+    </section>
 </div>

@@ -109,6 +109,7 @@
 
         <div class="profile-actions d-flex flex-wrap gap-2">
             <button type="button" class="btn btn-warning text-dark" id="updateUserBtn" disabled>Update</button>
+            <button type="button" class="btn btn-outline-warning text-dark" id="resetPasswordBtn" disabled>Reset Password</button>
             <button type="button" class="btn btn-outline-danger" id="deleteUserBtn" disabled>Delete</button>
         </div>
     </div>
@@ -159,6 +160,37 @@
     </div>
 </div>
 
+<div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-labelledby="resetPasswordModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="resetPasswordForm">
+                <div class="modal-header" style="background:#fff3b0;">
+                    <h5 class="modal-title" id="resetPasswordModalTitle">Reset Password</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="profileResetEmail" class="form-label">Email</label>
+                        <input type="email" id="profileResetEmail" class="form-control" placeholder="Enter account email" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="profileResetNewPassword" class="form-label">New Password</label>
+                        <input type="password" id="profileResetNewPassword" class="form-control" placeholder="Enter new password" required />
+                    </div>
+                    <div class="mb-0">
+                        <label for="profileResetConfirmPassword" class="form-label">Confirm Password</label>
+                        <input type="password" id="profileResetConfirmPassword" class="form-control" placeholder="Confirm new password" required />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning text-dark">Reset Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
@@ -167,6 +199,7 @@
             var currentUser = null;
             var token = $('#antiForgeryForm input[name="__RequestVerificationToken"]').val();
             var editUserModal = new bootstrap.Modal(document.getElementById('editUserModal'));
+            var resetPasswordModal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
 
             function htmlEncode(value) {
                 return $('<div>').text(value || '').html();
@@ -236,12 +269,12 @@
 
                 $('#profileBody').html(html);
                 $('#profileStatus').text('profile loaded');
-                $('#updateUserBtn, #deleteUserBtn').prop('disabled', false);
+                $('#updateUserBtn, #resetPasswordBtn, #deleteUserBtn').prop('disabled', false);
             }
 
             function loadProfile() {
                 $('#profileStatus').text('loading profile...');
-                $('#updateUserBtn, #deleteUserBtn').prop('disabled', true);
+                $('#updateUserBtn, #resetPasswordBtn, #deleteUserBtn').prop('disabled', true);
 
                 $.get('@Url.Action("Details", "User")')
                     .done(function (user) {
@@ -267,6 +300,17 @@
                 $('#editPassword').val(currentUser.password);
                 $('#editInterestTags').val(currentUser.InterestTags);
                 editUserModal.show();
+            });
+
+            $('#resetPasswordBtn').on('click', function () {
+                if (!currentUser) {
+                    return;
+                }
+
+                $('#profileResetEmail').val(currentUser.Email);
+                $('#profileResetNewPassword').val('');
+                $('#profileResetConfirmPassword').val('');
+                resetPasswordModal.show();
             });
 
             $('#deleteUserBtn').on('click', function () {
@@ -341,6 +385,41 @@
                     },
                     error: function (xhr) {
                         Swal.fire('Error', responseMessage(xhr, 'User profile could not be updated.'), 'error');
+                    }
+                });
+            });
+
+            $('#resetPasswordForm').on('submit', function (event) {
+                event.preventDefault();
+
+                var email = $.trim($('#profileResetEmail').val());
+                var newPassword = $('#profileResetNewPassword').val();
+                var confirmPassword = $('#profileResetConfirmPassword').val();
+
+                if (!email || !newPassword || !confirmPassword) {
+                    Swal.fire('Required', 'Email and password are required.', 'info');
+                    return;
+                }
+
+                if (newPassword !== confirmPassword) {
+                    Swal.fire('Password mismatch', 'New password and confirm password must match.', 'info');
+                    return;
+                }
+
+                $.ajax({
+                    url: '@Url.Action("ResetPassword", "User")',
+                    type: 'POST',
+                    data: {
+                        email: email,
+                        newPassword: newPassword
+                    },
+                    success: function (response) {
+                        resetPasswordModal.hide();
+                        $('#resetPasswordForm')[0].reset();
+                        Swal.fire('Updated', responseMessage({ responseJSON: response }, 'Password reset successfully.'), 'success');
+                    },
+                    error: function (xhr) {
+                        Swal.fire('Error', responseMessage(xhr, 'Password could not be reset.'), 'error');
                     }
                 });
             });

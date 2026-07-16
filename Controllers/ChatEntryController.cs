@@ -128,6 +128,8 @@ if (string.IsNullOrWhiteSpace(chat.ChatTags))
                 _repo.Add(chat);
                 _repo.Save();
 
+                await _repo.UpdateSearchVector(chat.Id);
+
                 return RedirectToAction(nameof(Index));
             }
             return View(chat);
