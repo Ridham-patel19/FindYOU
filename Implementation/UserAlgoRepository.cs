@@ -8,93 +8,93 @@ namespace FindYOU;
 public class UserAlgoRepository : IUserAlgoInterface
 {
 
-     private readonly ApplicationDbContext _context;
+    private readonly ApplicationDbContext _context;
 
-     private readonly NpgsqlConnection _conn;
+    private readonly NpgsqlConnection _conn;
 
-    public UserAlgoRepository(ApplicationDbContext context , NpgsqlConnection conn)
+    public UserAlgoRepository(ApplicationDbContext context, NpgsqlConnection conn)
     {
         _context = context;
         _conn = conn;
     }
 
-public async Task<List<FeedChatDto>> GetRecommendedChatsAsync(int userId)
-{
-    var user = await _context.Users
-        .FirstOrDefaultAsync(u => u.Id == userId);
-
-    if (user == null || string.IsNullOrWhiteSpace(user.InterestTags))
+    public async Task<List<FeedChatDto>> GetRecommendedChatsAsync(int userId)
     {
-        return new List<FeedChatDto>();
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user == null || string.IsNullOrWhiteSpace(user.InterestTags))
+        {
+            return new List<FeedChatDto>();
+        }
+
+        var interestList = user.InterestTags
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Select(tag => tag.ToLower())
+            .ToList();
+
+        // User's bookmarked chats
+        var bookmarkedIds = await _context.Bookmarks
+            .Where(b => b.UserId == userId)
+            .Select(b => b.ChatEntryId)
+            .ToListAsync();
+
+        // User's liked chats
+        var likedIds = await _context.Likes
+            .Where(l => l.UserId == userId)
+            .Select(l => l.ChatEntryId)
+            .ToListAsync();
+
+        // Like count for every chat
+        var likeCounts = await _context.Likes
+            .GroupBy(l => l.ChatEntryId)
+            .Select(g => new
+            {
+                ChatId = g.Key,
+                Count = g.Count()
+            })
+            .ToDictionaryAsync(x => x.ChatId, x => x.Count);
+
+        var chats = await _context.ChatEntries
+            .Include(c => c.Category)
+            .Where(c =>
+                c.IsPublic &&
+                c.ChatTags != null &&
+                interestList.Any(tag =>
+                    c.ChatTags.ToLower().Contains(tag)))
+            .ToListAsync();
+
+        return chats.Select(c => new FeedChatDto
+        {
+            Id = c.Id,
+            Title = c.Title,
+            ChatLink = c.ChatLink,
+            Summary = c.Summary,
+            Notes = c.Notes,
+            IsPublic = c.IsPublic,
+            CreatedAt = c.CreatedAt,
+            CategoryId = c.CategoryId,
+            Category = c.Category,
+            ChatTags = c.ChatTags,
+            UserId = c.UserId,
+
+            IsBookmarked = bookmarkedIds.Contains(c.Id),
+            IsLiked = likedIds.Contains(c.Id),
+            LikeCount = likeCounts.TryGetValue(c.Id, out var count)
+                ? count
+                : 0
+        }).ToList();
     }
 
-    var interestList = user.InterestTags
-        .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-        .Select(tag => tag.ToLower())
-        .ToList();
-
-    // User's bookmarked chats
-    var bookmarkedIds = await _context.Bookmarks
-        .Where(b => b.UserId == userId)
-        .Select(b => b.ChatEntryId)
-        .ToListAsync();
-
-    // User's liked chats
-    var likedIds = await _context.Likes
-        .Where(l => l.UserId == userId)
-        .Select(l => l.ChatEntryId)
-        .ToListAsync();
-
-    // Like count for every chat
-    var likeCounts = await _context.Likes
-        .GroupBy(l => l.ChatEntryId)
-        .Select(g => new
-        {
-            ChatId = g.Key,
-            Count = g.Count()
-        })
-        .ToDictionaryAsync(x => x.ChatId, x => x.Count);
-
-    var chats = await _context.ChatEntries
-        .Include(c => c.Category)
-        .Where(c =>
-            c.IsPublic &&
-            c.ChatTags != null &&
-            interestList.Any(tag =>
-                c.ChatTags.ToLower().Contains(tag)))
-        .ToListAsync();
-
-    return chats.Select(c => new FeedChatDto
+    public async Task<List<FeedChatDto>> GetVectorFeedAsync(
+      int userId,
+      string query)
     {
-        Id = c.Id,
-        Title = c.Title,
-        ChatLink = c.ChatLink,
-        Summary = c.Summary,
-        Notes = c.Notes,
-        IsPublic = c.IsPublic,
-        CreatedAt = c.CreatedAt,
-        CategoryId = c.CategoryId,
-        Category = c.Category,
-        ChatTags = c.ChatTags,
-        UserId = c.UserId,
 
-        IsBookmarked = bookmarkedIds.Contains(c.Id),
-        IsLiked = likedIds.Contains(c.Id),
-        LikeCount = likeCounts.TryGetValue(c.Id, out var count)
-            ? count
-            : 0
-    }).ToList();
-}
+        var tsQuery = string.Join(" | ",
+        query.Split(' ', StringSplitOptions.RemoveEmptyEntries));
 
-  public async Task<List<FeedChatDto>> GetVectorFeedAsync(
-    int userId,
-    string query)
-{
-
-    var tsQuery = string.Join(" | ",
-    query.Split(' ', StringSplitOptions.RemoveEmptyEntries));
-
-    var qry = @"
+        var qry = @"
 SELECT
     c.*,
 
@@ -135,83 +135,220 @@ ORDER BY ts_rank(
 
 LIMIT 10;";
 
-    var chats = new List<FeedChatDto>();
+        var chats = new List<FeedChatDto>();
 
-    try
-    {
-        using var cmd = new NpgsqlCommand(qry, _conn);
-
-        cmd.Parameters.AddWithValue("query", tsQuery);
-        cmd.Parameters.AddWithValue("userId", userId);
-
-        await _conn.OpenAsync();
-
-        using var reader = await cmd.ExecuteReaderAsync();
-
-        while (await reader.ReadAsync())
+        try
         {
-            chats.Add(new FeedChatDto
+            using var cmd = new NpgsqlCommand(qry, _conn);
+
+            cmd.Parameters.AddWithValue("query", tsQuery);
+            cmd.Parameters.AddWithValue("userId", userId);
+
+            await _conn.OpenAsync();
+
+            using var reader = await cmd.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
             {
-                Id = reader.GetInt32(
-                    reader.GetOrdinal("Id")),
+                chats.Add(new FeedChatDto
+                {
+                    Id = reader.GetInt32(
+                        reader.GetOrdinal("Id")),
 
-                Title = reader.GetString(
-                    reader.GetOrdinal("Title")),
+                    Title = reader.GetString(
+                        reader.GetOrdinal("Title")),
 
-                Summary = reader.IsDBNull(
-                    reader.GetOrdinal("Summary"))
-                    ? null
-                    : reader.GetString(
-                        reader.GetOrdinal("Summary")),
+                    Summary = reader.IsDBNull(
+                        reader.GetOrdinal("Summary"))
+                        ? null
+                        : reader.GetString(
+                            reader.GetOrdinal("Summary")),
 
-                ChatLink = reader.GetString(
-                    reader.GetOrdinal("ChatLink")),
+                    ChatLink = reader.GetString(
+                        reader.GetOrdinal("ChatLink")),
 
-                ChatTags = reader.IsDBNull(
-                    reader.GetOrdinal("ChatTags"))
-                    ? null
-                    : reader.GetString(
-                        reader.GetOrdinal("ChatTags")),
+                    ChatTags = reader.IsDBNull(
+                        reader.GetOrdinal("ChatTags"))
+                        ? null
+                        : reader.GetString(
+                            reader.GetOrdinal("ChatTags")),
 
-                CreatedAt = reader.GetDateTime(
-                    reader.GetOrdinal("CreatedAt")),
+                    CreatedAt = reader.GetDateTime(
+                        reader.GetOrdinal("CreatedAt")),
 
-                CategoryId = reader.GetInt32(
-                    reader.GetOrdinal("CategoryId")),
+                    CategoryId = reader.GetInt32(
+                        reader.GetOrdinal("CategoryId")),
 
-                UserId = reader.GetInt32(
-                    reader.GetOrdinal("UserId")),
+                    UserId = reader.GetInt32(
+                        reader.GetOrdinal("UserId")),
 
-                IsPublic = reader.GetBoolean(
-                    reader.GetOrdinal("IsPublic")),
+                    IsPublic = reader.GetBoolean(
+                        reader.GetOrdinal("IsPublic")),
 
-                IsBookmarked = reader.GetBoolean(
-                    reader.GetOrdinal("IsBookmarked")),
+                    IsBookmarked = reader.GetBoolean(
+                        reader.GetOrdinal("IsBookmarked")),
 
-                IsLiked = reader.GetBoolean(
-                    reader.GetOrdinal("IsLiked")),
+                    IsLiked = reader.GetBoolean(
+                        reader.GetOrdinal("IsLiked")),
 
-                LikeCount = reader.GetInt32(
-                    reader.GetOrdinal("LikeCount"))
-            });
+                    LikeCount = reader.GetInt32(
+                        reader.GetOrdinal("LikeCount"))
+                });
+            }
+
+            return chats;
         }
-
-        return chats;
-    }
-    catch (Exception e)
-    {
-        Console.WriteLine(
-            "error in feed generation with vector " + e.Message);
-
-        return new List<FeedChatDto>();
-    }
-    finally
-    {
-        if (_conn.State == System.Data.ConnectionState.Open)
+        catch (Exception e)
         {
-            await _conn.CloseAsync();
+            Console.WriteLine(
+                "error in feed generation with vector " + e.Message);
+
+            return new List<FeedChatDto>();
+        }
+        finally
+        {
+            if (_conn.State == System.Data.ConnectionState.Open)
+            {
+                await _conn.CloseAsync();
+            }
         }
     }
+
+    public async Task<string> GetUpdatedUserInterestTag(int userid)
+    {
+        string alltags = "";
+
+        List<ChatEntry> recentLikedChats = await _context.Likes
+        .Where(x => x.UserId == userid)
+        .OrderByDescending(l => l.CreatedAt)
+        .Take(5)
+        .Include(x => x.ChatEntry)
+        .Select(x => x.ChatEntry)
+        .ToListAsync();
+
+        var recentBookmarkedChats = await _context.Bookmarks
+     .Where(b => b.UserId == userid)
+     .OrderByDescending(b => b.CreatedAt)
+     .Take(5)
+     .Include(b => b.ChatEntry)
+     .Select(b => b.ChatEntry)
+     .ToListAsync();
+
+        
+    string allTags = string.Join(" ",
+        recentLikedChats
+            .Concat(recentBookmarkedChats)
+            .Select(x => x.ChatTags)
+
+           
+
+    );
+
+
+        return allTags;
+
+    }
+
+  public async Task<List<FeedChatDto>> GetViralChats()
+{
+    // Top 10 public chats with the most bookmarks
+    var topBookmarkedChats = await _context.Bookmarks
+        .GroupBy(b => b.ChatEntryId)
+        .Select(g => new
+        {
+            ChatEntryId = g.Key,
+            BookmarkCount = g.Count()
+        })
+        .Join(
+            _context.ChatEntries.Where(c => c.IsPublic),
+            bookmark => bookmark.ChatEntryId,
+            chat => chat.Id,
+            (bookmark, chat) => new
+            {
+                Chat = chat,
+                BookmarkCount = bookmark.BookmarkCount
+            }
+        )
+        .OrderByDescending(x => x.BookmarkCount)
+        .Take(10)
+        .Select(x => x.Chat)
+        .ToListAsync();
+
+
+    // Top 10 public chats with the most likes
+    var topLikedChats = await _context.Likes
+        .GroupBy(l => l.ChatEntryId)
+        .Select(g => new
+        {
+            ChatEntryId = g.Key,
+            LikeCount = g.Count()
+        })
+        .Join(
+            _context.ChatEntries.Where(c => c.IsPublic),
+            like => like.ChatEntryId,
+            chat => chat.Id,
+            (like, chat) => new
+            {
+                Chat = chat,
+                LikeCount = like.LikeCount
+            }
+        )
+        .OrderByDescending(x => x.LikeCount)
+        .Take(10)
+        .Select(x => x.Chat)
+        .ToListAsync();
+
+
+    // Combine both lists and remove duplicate chats
+    var uniqueChats = topBookmarkedChats
+        .Concat(topLikedChats)
+        .GroupBy(c => c.Id)
+        .Select(g => g.First())
+        .ToList();
+
+
+    // Get like counts for the final chats
+    var chatIds = uniqueChats
+        .Select(c => c.Id)
+        .ToList();
+
+    var likeCounts = await _context.Likes
+        .Where(l => chatIds.Contains(l.ChatEntryId))
+        .GroupBy(l => l.ChatEntryId)
+        .Select(g => new
+        {
+            ChatEntryId = g.Key,
+            LikeCount = g.Count()
+        })
+        .ToDictionaryAsync(
+            x => x.ChatEntryId,
+            x => x.LikeCount
+        );
+
+
+    // Convert ChatEntry -> FeedChatDto
+    return uniqueChats.Select(c => new FeedChatDto
+    {
+        Id = c.Id,
+        Title = c.Title,
+        ChatLink = c.ChatLink,
+        Summary = c.Summary,
+        Notes = c.Notes,
+        IsPublic = c.IsPublic,
+        CreatedAt = c.CreatedAt,
+        CategoryId = c.CategoryId,
+        ChatTags = c.ChatTags,
+        UserId = c.UserId,
+
+        // Viral feed is general, not for a specific user
+        IsBookmarked = false,
+        IsLiked = false,
+
+        LikeCount = likeCounts.TryGetValue(c.Id, out var count)
+            ? count
+            : 0
+    })
+    .ToList();
 }
 }
 

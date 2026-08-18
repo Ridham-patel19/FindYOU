@@ -1,5 +1,6 @@
 using FindYOU;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.VisualBasic;
 
 namespace MyApp.Namespace
 {
@@ -10,10 +11,13 @@ namespace MyApp.Namespace
 
         private readonly IUserInterface _userRepo;
 
-        public UserAlgoController(IUserAlgoInterface algo , IUserInterface userRepo)
+          private readonly AITagsGeneration _AiService;
+
+        public UserAlgoController(IUserAlgoInterface algo , IUserInterface userRepo , AITagsGeneration AiTags)
         {
             _algoRepo = algo;
             _userRepo = userRepo;
+            _AiService = AiTags;
         }
 
 
@@ -84,5 +88,64 @@ System.Console.WriteLine("before search vectore");
 
     return Ok(chats);
 }
+
+
+[HttpGet]
+public async Task<IActionResult> UpdateUserFeedTags()
+        {
+              var userId = HttpContext.Session.GetInt32("Userid");
+
+
+    if (userId == null)
+        return Unauthorized();
+
+                string tags = await _algoRepo.GetUpdatedUserInterestTag((int)userId);
+
+            if (string.IsNullOrWhiteSpace(tags))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "interest tags are empty"
+                });
+            }
+
+            string updatedTags = await _AiService.GetUpdatedInterestTagForUser(tags);
+            System.Console.WriteLine(updatedTags);
+
+              if (string.IsNullOrWhiteSpace(updatedTags))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "interest tags are empty"
+                });
+            }
+
+            return Ok(updatedTags);
+
+
+            
+        }
+
+
+        [HttpGet]
+        public async Task<IActionResult> GetViralChats()
+        {
+              var userId = HttpContext.Session.GetInt32("Userid");
+
+    if (userId == null)
+        return Unauthorized();
+
+        var chats = await _algoRepo.GetViralChats();
+
+        if(chats == null || chats.Count() == 0)
+         return BadRequest();
+
+       return Ok(chats);
+         
+        }
+
+        
 }
 }
