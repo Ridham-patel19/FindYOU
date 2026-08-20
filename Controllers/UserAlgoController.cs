@@ -54,10 +54,15 @@ namespace MyApp.Namespace
 
     var vectorChats = await _algoRepo.GetVectorFeedAsync(userId.Value, query);
 Console.WriteLine($"Vector Chat Count = {vectorChats.Count}");
-    foreach (var item in vectorChats)
-{
-       System.Console.WriteLine(item.LikeCount);
-}
+//     foreach (var item in vectorChats)
+// {
+//        System.Console.WriteLine(item.LikeCount);
+// }
+
+if(vectorChats.Count == 0)
+            {
+                 vectorChats = await _algoRepo.GetViralChats();
+            }
 
     // Update basic chats with values from vector feed if they exist
     foreach (var chat in chats)
